@@ -116,7 +116,9 @@ func (ki kdTreeIndex[T, U, M]) Search(query []T, n uint, r float32) []U {
 	return results
 }
 
-func makeCutPlane[T my_constraints.Number, U any](pool []*kdElement[T, U], begin uint, end uint) (kdCutPlane[T], error) {
+func makeCutPlane[T my_constraints.Number, U any](pool []*kdElement[T, U]) (kdCutPlane[T], error) {
+	begin := uint(0)
+	end := uint(len(pool))
 	if len(pool) == 0 {
 		return kdCutPlane[T]{}, errors.New("empty pool")
 	}
@@ -182,12 +184,12 @@ func (ki *kdTreeIndex[T, U, M]) build(begin uint, end uint) (*kdNode[T, U], erro
 		}, nil
 	}
 
-	cutPlane, err := makeCutPlane(ki.Pool, begin, end)
+	cutPlane, err := makeCutPlane(ki.Pool[begin:end])
 	if err != nil {
 		return nil, err
 	}
 
-	midIndex := partition(ki.Pool, begin, end, cutPlane)
+	midIndex := partition(ki.Pool[begin:end], cutPlane) + begin
 	left, err := ki.build(begin, midIndex)
 	if err != nil {
 		return nil, err
@@ -206,8 +208,8 @@ func (ki *kdTreeIndex[T, U, M]) build(begin uint, end uint) (*kdNode[T, U], erro
 	}, nil
 }
 
-func partition[T my_constraints.Number, U any](pool []*kdElement[T, U], begin uint, end uint, cutPlane kdCutPlane[T]) uint {
-	i, j := begin, end-1
+func partition[T my_constraints.Number, U any](pool []*kdElement[T, U], cutPlane kdCutPlane[T]) uint {
+	i, j := uint(0), uint(len(pool)-1)
 	for i <= j {
 		for i <= j && pool[i].Feature[cutPlane.Axis] <= cutPlane.Value {
 			i++

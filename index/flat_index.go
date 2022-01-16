@@ -4,11 +4,11 @@ import (
 	"math"
 	"sort"
 
-	my_constraints "github.com/ar90n/countrymaam/constraints"
 	"github.com/ar90n/countrymaam/metric"
+	"github.com/ar90n/countrymaam/number"
 )
 
-type flatIndex[T my_constraints.Number, U any, M metric.Metric[T]] struct {
+type flatIndex[T number.Number, U any, M metric.Metric[T]] struct {
 	dim      uint
 	features [][]T
 	items    []U
@@ -57,7 +57,7 @@ func (fi flatIndex[T, U, M]) Build() error {
 	return nil
 }
 
-func NewFlatIndex[T my_constraints.Number, U any, M metric.Metric[T]](dim uint) *flatIndex[T, U, M] {
+func NewFlatIndex[T number.Number, U any, M metric.Metric[T]](dim uint) *flatIndex[T, U, M] {
 	return &flatIndex[T, U, M]{
 		dim:      dim,
 		features: make([][]T, 0),

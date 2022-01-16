@@ -5,11 +5,11 @@ import (
 	"sort"
 
 	"github.com/ar90n/countrymaam/collection"
-	my_constraints "github.com/ar90n/countrymaam/constraints"
 	"github.com/ar90n/countrymaam/metric"
+	"github.com/ar90n/countrymaam/number"
 )
 
-type kdCutPlane[T my_constraints.Number, U any] struct {
+type kdCutPlane[T number.Number, U any] struct {
 	Axis  uint
 	Value T
 }
@@ -18,7 +18,7 @@ func (cp kdCutPlane[T, U]) Evaluate(element *kdElement[T, U]) bool {
 	return element.Feature[cp.Axis] <= cp.Value
 }
 
-func NewKdCutPlane[T my_constraints.Number, U any](elements []*kdElement[T, U]) (kdCutPlane[T, U], error) {
+func NewKdCutPlane[T number.Number, U any](elements []*kdElement[T, U]) (kdCutPlane[T, U], error) {
 	if len(elements) == 0 {
 		return kdCutPlane[T, U]{}, errors.New("elements is empty")
 	}
@@ -27,8 +27,8 @@ func NewKdCutPlane[T my_constraints.Number, U any](elements []*kdElement[T, U]) 
 	maxValues := append([]T{}, elements[0].Feature...)
 	for _, element := range elements[1:] {
 		for j, v := range element.Feature {
-			minValues[j] = my_constraints.Min(minValues[j], v)
-			maxValues[j] = my_constraints.Max(maxValues[j], v)
+			minValues[j] = number.Min(minValues[j], v)
+			maxValues[j] = number.Max(maxValues[j], v)
 		}
 	}
 
@@ -51,19 +51,19 @@ func NewKdCutPlane[T my_constraints.Number, U any](elements []*kdElement[T, U]) 
 	return cutPlane, nil
 }
 
-type kdElement[T my_constraints.Number, U any] struct {
+type kdElement[T number.Number, U any] struct {
 	Feature []T
 	Item    U
 }
 
-type kdNode[T my_constraints.Number, U any] struct {
+type kdNode[T number.Number, U any] struct {
 	CutPlane kdCutPlane[T, U]
 	Elements []*kdElement[T, U]
 	Left     *kdNode[T, U]
 	Right    *kdNode[T, U]
 }
 
-type kdTreeIndex[T my_constraints.Number, U any, M metric.Metric[T]] struct {
+type kdTreeIndex[T number.Number, U any, M metric.Metric[T]] struct {
 	Dim      uint
 	Pool     []*kdElement[T, U]
 	Metric   M
@@ -116,7 +116,7 @@ func (ki kdTreeIndex[T, U, M]) Search(query []T, n uint, r float32) ([]U, error)
 				r = candidates[len(candidates)-1].Distance
 			}
 
-			distanceToCutPlane := float32(my_constraints.Abs(query[node.CutPlane.Axis] - node.CutPlane.Value))
+			distanceToCutPlane := float32(number.Abs(query[node.CutPlane.Axis] - node.CutPlane.Value))
 			if distanceToCutPlane < r {
 				candidates = append(candidates, search(secondaryNode, query, metric, n, r)...)
 			}
@@ -187,7 +187,7 @@ func (ki *kdTreeIndex[T, U, M]) Build() error {
 	return nil
 }
 
-func NewKDTreeIndex[T my_constraints.Number, U any, M metric.Metric[T]](dim, leafSize uint) *kdTreeIndex[T, U, M] {
+func NewKDTreeIndex[T number.Number, U any, M metric.Metric[T]](dim, leafSize uint) *kdTreeIndex[T, U, M] {
 	return &kdTreeIndex[T, U, M]{
 		Dim:      dim,
 		LeafSize: leafSize,

@@ -15,12 +15,14 @@ type flatIndex[T my_constraints.Number, U any, M metric.Metric[T]] struct {
 	metric   M
 }
 
+var _ = (*flatIndex[float32, int, metric.SqL2Dist[float32]])(nil)
+
 func (fi *flatIndex[T, U, M]) Add(feature []T, item U) {
 	fi.features = append(fi.features, feature)
 	fi.items = append(fi.items, item)
 }
 
-func (fi flatIndex[T, U, M]) Search(query []T, n uint, r float32) []U {
+func (fi flatIndex[T, U, M]) Search(query []T, n uint, r float32) ([]U, error) {
 	candidates := make([]Candidate[U], n+1)
 	for i := range candidates {
 		candidates[i].Distance = math.MaxFloat32
@@ -48,7 +50,7 @@ func (fi flatIndex[T, U, M]) Search(query []T, n uint, r float32) []U {
 	for i, c := range candidates[:nCandidates] {
 		results[i] = c.Item
 	}
-	return results
+	return results, nil
 }
 
 func (fi flatIndex[T, U, M]) Build() error {

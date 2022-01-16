@@ -37,14 +37,19 @@ func TestSearchKNNVectors(t *testing.T) {
 		Expected []int
 	}
 
+	datasetDim := uint(len(dataset[0]))
 	for _, alg := range []Algorithm{
 		{
 			"FlatIndex",
-			index.NewFlatIndex[float32, int, metric.SqL2Dist[float32]](uint(len(dataset[0]))),
+			index.NewFlatIndex[float32, int, metric.SqL2Dist[float32]](datasetDim),
 		},
 		{
-			"KDTreeIndex",
-			index.NewKDTreeIndex[float32, int, metric.SqL2Dist[float32]](uint(len(dataset[0]))),
+			"KDTreeIndex-lefSize:1",
+			index.NewKDTreeIndex[float32, int, metric.SqL2Dist[float32]](datasetDim, 1),
+		},
+		{
+			"KDTreeIndex-leafSize:5",
+			index.NewKDTreeIndex[float32, int, metric.SqL2Dist[float32]](datasetDim, 5),
 		},
 	} {
 		t.Run(alg.Name, func(t *testing.T) {
@@ -87,7 +92,7 @@ func TestSearchKNNVectors(t *testing.T) {
 				},
 			} {
 				t.Run(fmt.Sprint(c), func(t *testing.T) {
-					results := alg.Index.Search(tc.Query[:], tc.K, tc.Radius)
+					results, _ := alg.Index.Search(tc.Query[:], tc.K, tc.Radius)
 					if len(results) != len(tc.Expected) {
 						t.Errorf("Expected 1 result, got %d", len(results))
 					}
@@ -98,18 +103,5 @@ func TestSearchKNNVectors(t *testing.T) {
 				})
 			}
 		})
-	}
-}
-
-func TestKDTree(t *testing.T) {
-	kdtree := index.NewKDTreeIndex[float32, int, metric.SqL2Dist[float32]](2)
-	for i := 0; i < 10; i++ {
-		kdtree.Add([]float32{float32(i), float32(i)}, i)
-	}
-	kdtree.Build()
-
-	ret := kdtree.Search([]float32{4, 4}, 3, 3.5)
-	if !reflect.DeepEqual(ret, []int{4, 3, 5}) {
-		t.Errorf("Expected results to be %v, got %v", []int{4, 3, 5}, ret)
 	}
 }

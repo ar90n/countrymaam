@@ -6,6 +6,6 @@ import (
 
 type Index[T my_constraints.Number, U any] interface {
 	Add(feature []T, item U)
-	Search(feature []T, n uint, r float32) []U
+	Search(feature []T, n uint, r float32) ([]U, error)
 	Build() error
 }

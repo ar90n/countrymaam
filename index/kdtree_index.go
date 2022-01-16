@@ -21,8 +21,7 @@ type kdElement[T my_constraints.Number, U any] struct {
 
 type kdNode[T my_constraints.Number, U any] struct {
 	CutPlane kdCutPlane[T]
-	Begin    uint
-	End      uint
+	Elements []*kdElement[T, U]
 	Left     *kdNode[T, U]
 	Right    *kdNode[T, U]
 }
@@ -44,10 +43,10 @@ func (ki *kdTreeIndex[T, U, M]) Add(feature []T, item U) {
 func (fi kdTreeIndex[T, U, M]) search(node *kdNode[T, U], query []T, n uint, r float32) []Candidate[U] {
 	candidates := make([]Candidate[U], 0)
 	if node.Left == nil && node.Right == nil {
-		for i := node.Begin; i < node.End; i++ {
-			distance := fi.Metric.CalcDistance(query, fi.Pool[i].Feature)
+		for _, element := range node.Elements {
+			distance := fi.Metric.CalcDistance(query, element.Feature)
 			if distance < r {
-				candidates = append(candidates, Candidate[U]{distance, fi.Pool[i].Item})
+				candidates = append(candidates, Candidate[U]{distance, element.Item})
 			}
 		}
 
@@ -164,7 +163,7 @@ func (ki *kdTreeIndex[T, U, M]) Build() error {
 		return errors.New("empty pool")
 	}
 
-	root, err := ki.build(0, uint(len(ki.Pool)))
+	root, err := ki.build(ki.Pool)
 	if err != nil {
 		return errors.New("build failed")
 	}
@@ -172,36 +171,34 @@ func (ki *kdTreeIndex[T, U, M]) Build() error {
 	return nil
 }
 
-func (ki *kdTreeIndex[T, U, M]) build(begin uint, end uint) (*kdNode[T, U], error) {
-	if begin == end {
+func (ki *kdTreeIndex[T, U, M]) build(elements []*kdElement[T, U]) (*kdNode[T, U], error) {
+	if len(elements) == 0 {
 		return nil, nil
 	}
 
-	if (end - begin) <= 1 {
+	if len(elements) <= 1 {
 		return &kdNode[T, U]{
-			Begin: begin,
-			End:   end,
+			Elements: elements,
 		}, nil
 	}
 
-	cutPlane, err := makeCutPlane(ki.Pool[begin:end])
+	cutPlane, err := makeCutPlane(elements)
 	if err != nil {
 		return nil, err
 	}
 
-	midIndex := partition(ki.Pool[begin:end], cutPlane) + begin
-	left, err := ki.build(begin, midIndex)
+	midIndex := partition(elements, cutPlane)
+	left, err := ki.build(elements[:midIndex])
 	if err != nil {
 		return nil, err
 	}
-	right, err := ki.build(midIndex, end)
+	right, err := ki.build(elements[midIndex:])
 	if err != nil {
 		return nil, err
 	}
 
 	return &kdNode[T, U]{
-		Begin:    begin,
-		End:      end,
+		Elements: elements,
 		Left:     left,
 		Right:    right,
 		CutPlane: cutPlane,

@@ -28,7 +28,7 @@ func (fi flatIndex[T, U, M]) Search(query []T, n uint, r float32) ([]U, error) {
 		candidates[i].Distance = math.MaxFloat32
 	}
 
-	nCandidates := 0
+	nCandidates := uint(0)
 	for i, feature := range fi.features {
 		distance := fi.metric.CalcDistance(query, feature)
 		if distance < r {
@@ -42,8 +42,8 @@ func (fi flatIndex[T, U, M]) Search(query []T, n uint, r float32) ([]U, error) {
 			})
 		}
 	}
-	if n < uint(nCandidates) {
-		nCandidates = int(n)
+	if n < nCandidates {
+		nCandidates = n
 	}
 
 	results := make([]U, nCandidates)

@@ -2,7 +2,7 @@ package index
 
 import (
 	"errors"
-	"sort"
+	"math"
 
 	"github.com/ar90n/countrymaam/collection"
 	"github.com/ar90n/countrymaam/metric"
@@ -14,8 +14,12 @@ type kdCutPlane[T number.Number, U any] struct {
 	Value T
 }
 
-func (cp kdCutPlane[T, U]) Evaluate(element *kdElement[T, U]) bool {
-	return element.Feature[cp.Axis] <= cp.Value
+func (cp kdCutPlane[T, U]) Evaluate(feature []T) bool {
+	return 0.0 <= cp.Distance(feature)
+}
+
+func (cp kdCutPlane[T, U]) Distance(feature []T) float64 {
+	return float64(feature[cp.Axis] - cp.Value)
 }
 
 func NewKdCutPlane[T number.Number, U any](elements []*kdElement[T, U]) (kdCutPlane[T, U], error) {
@@ -91,95 +95,102 @@ func (ki kdTreeIndex[T, U, M]) Search(query []T, n uint, r float32) ([]U, error)
 		return nil, errors.New("index is not created")
 	}
 
-	var search func(node *kdNode[T, U], query []T, metric M, n uint, r float32) []Candidate[U]
-	search = func(node *kdNode[T, U], query []T, metric M, n uint, r float32) []Candidate[U] {
+	var search func(queue *collection.PriorityQueue[U], node *kdNode[T, U], query []T, metric M, n uint, r float32)
+	search = func(queue *collection.PriorityQueue[U], node *kdNode[T, U], query []T, metric M, n uint, r float32) {
 		if node == nil {
-			return []Candidate[U]{}
+			return
 		}
 
-		candidates := make([]Candidate[U], 0)
 		if node.Left == nil && node.Right == nil {
 			for _, element := range node.Elements {
 				distance := metric.CalcDistance(query, element.Feature)
 				if distance < r {
-					candidates = append(candidates, Candidate[U]{distance, element.Item})
+					queue.Push(element.Item, float64(distance))
 				}
 			}
 		} else {
+			distanceToCutPlane := node.CutPlane.Distance(query)
 			primaryNode, secondaryNode := node.Left, node.Right
-			if node.CutPlane.Value < query[node.CutPlane.Axis] {
+			if 0.0 < distanceToCutPlane {
 				primaryNode, secondaryNode = secondaryNode, primaryNode
 			}
-			candidates = append(candidates, search(primaryNode, query, metric, n, r)...)
+			search(queue, primaryNode, query, metric, n, r)
 
-			if n < uint(len(candidates)) {
-				r = candidates[len(candidates)-1].Distance
+			item, err := queue.PeekWithPriority(int(n) - 1)
+			if err == nil {
+				r = float32(item.Priority)
 			}
 
-			distanceToCutPlane := float32(number.Abs(query[node.CutPlane.Axis] - node.CutPlane.Value))
-			if distanceToCutPlane < r {
-				candidates = append(candidates, search(secondaryNode, query, metric, n, r)...)
+			if math.Abs(distanceToCutPlane) < float64(r) {
+				search(queue, secondaryNode, query, metric, n, r)
 			}
 		}
-
-		sort.Slice(candidates, func(i, j int) bool {
-			return candidates[i].Distance < candidates[j].Distance
-		})
-		if n < uint(len(candidates)) {
-			candidates = candidates[:n]
-		}
-		return candidates
 	}
 
-	candidates := search(ki.Root, query, ki.Metric, n, r)
-	results := make([]U, len(candidates))
-	for i, c := range candidates {
-		results[i] = c.Item
+	queue := collection.PriorityQueue[U]{}
+	search(&queue, ki.Root, query, ki.Metric, n, r)
+
+	results := make([]U, number.Min(n, uint(queue.Len())))
+	for i := range results {
+		item, err := queue.Pop()
+		if err != nil {
+			return nil, err
+		}
+		results[i] = item
 	}
 	return results, nil
 }
 
-func (ki *kdTreeIndex[T, U, M]) Build() error {
-	var build func(elements []*kdElement[T, U], leafSize uint) (*kdNode[T, U], error)
-	build = func(elements []*kdElement[T, U], leafSize uint) (*kdNode[T, U], error) {
-		if len(elements) == 0 {
-			return nil, nil
-		}
+type cutPlanePrejudice[T number.Number, U any] struct {
+	cutPlane kdCutPlane[T, U]
+}
 
-		if uint(len(elements)) <= leafSize {
-			return &kdNode[T, U]{
-				Elements: elements,
-			}, nil
-		}
+func (cp cutPlanePrejudice[T, U]) Evaluate(element *kdElement[T, U]) bool {
+	return cp.cutPlane.Evaluate(element.Feature)
+}
 
-		cutPlane, err := NewKdCutPlane(elements)
-		if err != nil {
-			return nil, err
-		}
+func buildKdTree[T number.Number, U any](elements []*kdElement[T, U], leafSize uint) (*kdNode[T, U], error) {
+	if len(elements) == 0 {
+		return nil, nil
+	}
 
-		leftElements, rightElements := collection.Partition(elements, cutPlane)
-		left, err := build(leftElements, leafSize)
-		if err != nil {
-			return nil, err
-		}
-		right, err := build(rightElements, leafSize)
-		if err != nil {
-			return nil, err
-		}
-
+	if uint(len(elements)) <= leafSize {
 		return &kdNode[T, U]{
 			Elements: elements,
-			Left:     left,
-			Right:    right,
-			CutPlane: cutPlane,
 		}, nil
 	}
 
+	//cutPlane, err := NewKdCutPlane(elements)
+	cutPlane, err := NewRandomizedKdCutPlane(elements)
+	if err != nil {
+		return nil, err
+	}
+
+	pred := cutPlanePrejudice[T, U]{cutPlane: cutPlane}
+	leftElements, rightElements := collection.Partition(elements, pred)
+	left, err := buildKdTree(leftElements, leafSize)
+	if err != nil {
+		return nil, err
+	}
+	right, err := buildKdTree(rightElements, leafSize)
+	if err != nil {
+		return nil, err
+	}
+
+	return &kdNode[T, U]{
+		Elements: elements,
+		Left:     left,
+		Right:    right,
+		CutPlane: cutPlane,
+	}, nil
+}
+
+func (ki *kdTreeIndex[T, U, M]) Build() error {
 	if len(ki.Pool) == 0 {
 		return errors.New("empty pool")
 	}
 
-	root, err := build(ki.Pool, ki.LeafSize)
+	root, err := buildKdTree(ki.Pool, ki.LeafSize)
 	if err != nil {
 		return errors.New("build failed")
 	}

@@ -8,6 +8,10 @@ type Number interface {
 	constraints.Integer | constraints.Float
 }
 
+func Cast[T Number, U Number](v T) U {
+	return U(v)
+}
+
 func Abs[T Number](x T) T {
 	if x < 0 {
 		return -x

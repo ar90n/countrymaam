@@ -5,12 +5,16 @@ type UniquePriorityQueue[T comparable] struct {
 	set map[T]struct{}
 }
 
+func NewUniquePriorityQueue[T comparable](capacity int) *UniquePriorityQueue[T] {
+	return &UniquePriorityQueue[T]{
+		PriorityQueue: *NewPriorityQueue[T](capacity),
+		set:           make(map[T]struct{}),
+	}
+}
+
 func (upq *UniquePriorityQueue[T]) Push(item T, priority float64) {
 	if _, ok := upq.set[item]; ok {
 		return
-	}
-	if upq.set == nil {
-		upq.set = make(map[T]struct{})
 	}
 	upq.set[item] = struct{}{}
 

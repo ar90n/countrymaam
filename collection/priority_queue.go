@@ -41,6 +41,12 @@ type PriorityQueue[T any] struct {
 	priorityQueue[T]
 }
 
+func NewPriorityQueue[T any](capacity int) *PriorityQueue[T] {
+	return &PriorityQueue[T]{
+		priorityQueue: make(priorityQueue[T], 0, capacity),
+	}
+}
+
 func (pq *PriorityQueue[T]) Push(item T, priority float64) {
 	heap.Push(
 		&pq.priorityQueue,

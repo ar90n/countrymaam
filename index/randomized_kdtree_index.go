@@ -121,23 +121,23 @@ func (rki *RandomizedKdTreeIndex[T, U, M]) Search(query []T, n uint, r float32) 
 		}
 	}
 
-	elementQueue := collection.UniquePriorityQueue[*kdElement[T, U]]{}
-	nodeQueue := collection.PriorityQueue[*kdNode[T, U]]{}
+	m := 32
+	elementQueue := collection.NewUniquePriorityQueue[*kdElement[T, U]](m)
+	nodeQueue := collection.NewPriorityQueue[*kdNode[T, U]](m)
 	for i, root := range rki.Roots {
 		if root == nil {
 			return nil, fmt.Errorf("%d-th index is not created", i)
 		}
 
-		search(&elementQueue, &nodeQueue, root, query, rki.Metric, r)
+		search(elementQueue, nodeQueue, root, query, rki.Metric, r)
 	}
 
-	m := 32
 	for elementQueue.Len() < m && 0 < nodeQueue.Len() {
 		node, err := nodeQueue.Pop()
 		if err != nil {
 			return nil, err
 		}
-		search(&elementQueue, &nodeQueue, node, query, rki.Metric, r)
+		search(elementQueue, nodeQueue, node, query, rki.Metric, r)
 	}
 
 	n = number.Min(n, uint(elementQueue.Len()))

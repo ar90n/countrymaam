@@ -1,9 +1,5 @@
 package collection
 
-type Predicate[T any] interface {
-	Evaluate(a T) bool
-}
-
 func Partition[T any](buf []T, predicate func(T) bool) ([]T, []T) {
 	i, j := uint(0), uint(len(buf)-1)
 	for i <= j {

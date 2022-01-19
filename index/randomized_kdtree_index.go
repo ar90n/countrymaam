@@ -11,44 +11,6 @@ import (
 	"github.com/ar90n/countrymaam/number"
 )
 
-func NewRandomizedKdCutPlane[T number.Number, U any](elements []*kdElement[T, U]) (kdCutPlane[T, U], error) {
-	if len(elements) == 0 {
-		return kdCutPlane[T, U]{}, errors.New("elements is empty")
-	}
-
-	dim := len(elements[0].Feature)
-	accs := make([]float64, dim)
-	sqAccs := make([]float64, dim)
-	for _, element := range elements {
-		for j, v := range element.Feature {
-			v := float64(v)
-			accs[j] += v
-			sqAccs[j] += v * v
-		}
-	}
-
-	invN := 1.0 / float64(len(elements))
-	queue := collection.PriorityQueue[kdCutPlane[T, U]]{}
-	for i := range accs {
-		mean := accs[i] * invN
-		sqMean := sqAccs[i] * invN
-		variance := sqMean - mean*mean
-
-		cutPlane := kdCutPlane[T, U]{
-			Axis:  uint(i),
-			Value: number.Cast[float64, T](mean),
-		}
-		queue.Push(cutPlane, -variance)
-	}
-
-	nCandidates := number.Min(5, queue.Len())
-	nSkip := rand.Intn(nCandidates) - 1
-	for i := 0; i < nSkip; i++ {
-		queue.Pop()
-	}
-	return queue.Pop()
-}
-
 type RandomizedKdTreeIndex[T number.Number, U any, M metric.Metric[T]] struct {
 	Dim      uint
 	Pool     []*kdElement[T, U]
@@ -76,7 +38,7 @@ func (rki *RandomizedKdTreeIndex[T, U, M]) Build() error {
 		elements := append([]*kdElement[T, U]{}, rki.Pool...)
 		rand.Shuffle(len(elements), func(i, j int) { elements[i], elements[j] = elements[j], elements[i] })
 
-		root, err := buildKdTree(elements, NewRandomizedKdCutPlane[T, U], rki.LeafSize)
+		root, err := buildKdTree(elements, NewRandomizedKdCutPlane[T, *kdElement[T, U]], rki.LeafSize)
 		if err != nil {
 			return fmt.Errorf("build %d-th kdtree failed", i)
 		}

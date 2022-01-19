@@ -15,7 +15,7 @@ type kdElement[T number.Number, U any] struct {
 }
 
 type kdNode[T number.Number, U any] struct {
-	CutPlane kdCutPlane[T, U]
+	CutPlane CutPlane[T]
 	Elements []*kdElement[T, U]
 	Left     *kdNode[T, U]
 	Right    *kdNode[T, U]
@@ -95,9 +95,7 @@ func (ki kdTreeIndex[T, U, M]) Search(query []T, n uint, r float32) ([]U, error)
 	return results, nil
 }
 
-type CutPlaneConstructor[T number.Number, U any] func(elements []*kdElement[T, U]) (kdCutPlane[T, U], error)
-
-func buildKdTree[T number.Number, U any](elements []*kdElement[T, U], makeCutPlane CutPlaneConstructor[T, U], leafSize uint) (*kdNode[T, U], error) {
+func buildKdTree[T number.Number, U any](elements []*kdElement[T, U], makeCutPlane CutPlaneConstructor[T, *kdElement[T, U]], leafSize uint) (*kdNode[T, U], error) {
 	if len(elements) == 0 {
 		return nil, nil
 	}
@@ -108,7 +106,9 @@ func buildKdTree[T number.Number, U any](elements []*kdElement[T, U], makeCutPla
 		}, nil
 	}
 
-	cutPlane, err := makeCutPlane(elements)
+	cutPlane, err := makeCutPlane(elements, func(element *kdElement[T, U]) []T {
+		return element.Feature
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func (ki *kdTreeIndex[T, U, M]) Build() error {
 		return errors.New("empty pool")
 	}
 
-	root, err := buildKdTree(ki.Pool, NewKdCutPlane[T, U], ki.LeafSize)
+	root, err := buildKdTree(ki.Pool, NewKdCutPlane[T, *kdElement[T,U]], ki.LeafSize)
 	if err != nil {
 		return errors.New("build failed")
 	}

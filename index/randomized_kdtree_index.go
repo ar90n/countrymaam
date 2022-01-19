@@ -76,7 +76,7 @@ func (rki *RandomizedKdTreeIndex[T, U, M]) Build() error {
 		elements := append([]*kdElement[T, U]{}, rki.Pool...)
 		rand.Shuffle(len(elements), func(i, j int) { elements[i], elements[j] = elements[j], elements[i] })
 
-		root, err := buildKdTree(elements, rki.LeafSize)
+		root, err := buildKdTree(elements, NewRandomizedKdCutPlane[T, U], rki.LeafSize)
 		if err != nil {
 			return fmt.Errorf("build %d-th kdtree failed", i)
 		}

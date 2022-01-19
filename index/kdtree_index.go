@@ -95,14 +95,6 @@ func (ki kdTreeIndex[T, U, M]) Search(query []T, n uint, r float32) ([]U, error)
 	return results, nil
 }
 
-type cutPlanePrejudice[T number.Number, U any] struct {
-	cutPlane kdCutPlane[T, U]
-}
-
-func (cp cutPlanePrejudice[T, U]) Evaluate(element *kdElement[T, U]) bool {
-	return cp.cutPlane.Evaluate(element.Feature)
-}
-
 type CutPlaneConstructor[T number.Number, U any] func(elements []*kdElement[T, U]) (kdCutPlane[T, U], error)
 
 func buildKdTree[T number.Number, U any](elements []*kdElement[T, U], makeCutPlane CutPlaneConstructor[T, U], leafSize uint) (*kdNode[T, U], error) {
@@ -121,8 +113,10 @@ func buildKdTree[T number.Number, U any](elements []*kdElement[T, U], makeCutPla
 		return nil, err
 	}
 
-	pred := cutPlanePrejudice[T, U]{cutPlane: cutPlane}
-	leftElements, rightElements := collection.Partition(elements, pred)
+	leftElements, rightElements := collection.Partition(elements,
+		func(element *kdElement[T, U]) bool {
+			return cutPlane.Evaluate(element.Feature)
+		})
 	left, err := buildKdTree(leftElements, makeCutPlane, leafSize)
 	if err != nil {
 		return nil, err

@@ -4,13 +4,13 @@ type Predicate[T any] interface {
 	Evaluate(a T) bool
 }
 
-func Partition[T any, P Predicate[T]](buf []T, predicate P) ([]T, []T) {
+func Partition[T any](buf []T, predicate func(T) bool) ([]T, []T) {
 	i, j := uint(0), uint(len(buf)-1)
 	for i <= j {
-		for i <= j && !predicate.Evaluate(buf[i]) {
+		for i <= j && !predicate(buf[i]) {
 			i++
 		}
-		for i <= j && predicate.Evaluate(buf[j]) {
+		for i <= j && predicate(buf[j]) {
 			j--
 		}
 		if i < j {

@@ -55,6 +55,14 @@ func TestSearchKNNVectors(t *testing.T) {
 			"RandomizedKDTreeIndex-lefSize:1-5",
 			index.NewRandomizedKdTreeIndex[float32, int, metric.SqL2Dist[float32]](datasetDim, 1, 5),
 		},
+		{
+			"RpTreeIndex-lefSize:1",
+			index.NewRpTreeIndex[float32, int, metric.SqL2Dist[float32]](datasetDim, 1),
+		},
+		{
+			"RpTreeIndex-lefSize:5",
+			index.NewRpTreeIndex[float32, int, metric.SqL2Dist[float32]](datasetDim, 5),
+		},
 	} {
 		t.Run(alg.Name, func(t *testing.T) {
 			for i, data := range dataset {

@@ -9,30 +9,30 @@ import (
 	"github.com/ar90n/countrymaam/number"
 )
 
-type kdElement[T number.Number, U any] struct {
+type treeElement[T number.Number, U any] struct {
 	Feature []T
 	Item    U
 }
 
-type kdNode[T number.Number, U any] struct {
+type treeNode[T number.Number, U any] struct {
 	CutPlane CutPlane[T]
-	Elements []*kdElement[T, U]
-	Left     *kdNode[T, U]
-	Right    *kdNode[T, U]
+	Elements []*treeElement[T, U]
+	Left     *treeNode[T, U]
+	Right    *treeNode[T, U]
 }
 
 type kdTreeIndex[T number.Number, U any, M metric.Metric[T]] struct {
 	Dim      uint
-	Pool     []*kdElement[T, U]
+	Pool     []*treeElement[T, U]
 	Metric   M
-	Root     *kdNode[T, U]
+	Root     *treeNode[T, U]
 	LeafSize uint
 }
 
 var _ = (*kdTreeIndex[float32, int, metric.SqL2Dist[float32]])(nil)
 
 func (ki *kdTreeIndex[T, U, M]) Add(feature []T, item U) {
-	ki.Pool = append(ki.Pool, &kdElement[T, U]{
+	ki.Pool = append(ki.Pool, &treeElement[T, U]{
 		Feature: feature,
 		Item:    item,
 	})
@@ -49,8 +49,8 @@ func (ki kdTreeIndex[T, U, M]) Search(query []T, n uint, r float32) ([]U, error)
 		return nil, errors.New("index is not created")
 	}
 
-	var search func(queue *collection.PriorityQueue[U], node *kdNode[T, U], query []T, metric M, n uint, r float32)
-	search = func(queue *collection.PriorityQueue[U], node *kdNode[T, U], query []T, metric M, n uint, r float32) {
+	var search func(queue *collection.PriorityQueue[U], node *treeNode[T, U], query []T, metric M, n uint, r float32)
+	search = func(queue *collection.PriorityQueue[U], node *treeNode[T, U], query []T, metric M, n uint, r float32) {
 		if node == nil {
 			return
 		}
@@ -95,18 +95,18 @@ func (ki kdTreeIndex[T, U, M]) Search(query []T, n uint, r float32) ([]U, error)
 	return results, nil
 }
 
-func buildKdTree[T number.Number, U any](elements []*kdElement[T, U], makeCutPlane CutPlaneConstructor[T, *kdElement[T, U]], leafSize uint) (*kdNode[T, U], error) {
+func buildKdTree[T number.Number, U any](elements []*treeElement[T, U], makeCutPlane CutPlaneConstructor[T, *treeElement[T, U]], leafSize uint) (*treeNode[T, U], error) {
 	if len(elements) == 0 {
 		return nil, nil
 	}
 
 	if uint(len(elements)) <= leafSize {
-		return &kdNode[T, U]{
+		return &treeNode[T, U]{
 			Elements: elements,
 		}, nil
 	}
 
-	cutPlane, err := makeCutPlane(elements, func(element *kdElement[T, U]) []T {
+	cutPlane, err := makeCutPlane(elements, func(element *treeElement[T, U]) []T {
 		return element.Feature
 	})
 	if err != nil {
@@ -114,7 +114,7 @@ func buildKdTree[T number.Number, U any](elements []*kdElement[T, U], makeCutPla
 	}
 
 	leftElements, rightElements := collection.Partition(elements,
-		func(element *kdElement[T, U]) bool {
+		func(element *treeElement[T, U]) bool {
 			return cutPlane.Evaluate(element.Feature)
 		})
 	left, err := buildKdTree(leftElements, makeCutPlane, leafSize)
@@ -126,7 +126,7 @@ func buildKdTree[T number.Number, U any](elements []*kdElement[T, U], makeCutPla
 		return nil, err
 	}
 
-	return &kdNode[T, U]{
+	return &treeNode[T, U]{
 		Elements: elements,
 		Left:     left,
 		Right:    right,
@@ -139,7 +139,7 @@ func (ki *kdTreeIndex[T, U, M]) Build() error {
 		return errors.New("empty pool")
 	}
 
-	root, err := buildKdTree(ki.Pool, NewKdCutPlane[T, *kdElement[T,U]], ki.LeafSize)
+	root, err := buildKdTree(ki.Pool, NewKdCutPlane[T, *treeElement[T,U]], ki.LeafSize)
 	if err != nil {
 		return errors.New("build failed")
 	}

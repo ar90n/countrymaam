@@ -13,14 +13,14 @@ import (
 
 type RandomizedKdTreeIndex[T number.Number, U any, M metric.Metric[T]] struct {
 	Dim      uint
-	Pool     []*kdElement[T, U]
+	Pool     []*treeElement[T, U]
 	Metric   M
-	Roots    []*kdNode[T, U]
+	Roots    []*treeNode[T, U]
 	LeafSize uint
 }
 
 func (rki *RandomizedKdTreeIndex[T, U, M]) Add(feature []T, item U) {
-	rki.Pool = append(rki.Pool, &kdElement[T, U]{
+	rki.Pool = append(rki.Pool, &treeElement[T, U]{
 		Item:    item,
 		Feature: feature,
 	})
@@ -35,10 +35,10 @@ func (rki *RandomizedKdTreeIndex[T, U, M]) Build() error {
 	}
 
 	for i := range rki.Roots {
-		elements := append([]*kdElement[T, U]{}, rki.Pool...)
+		elements := append([]*treeElement[T, U]{}, rki.Pool...)
 		rand.Shuffle(len(elements), func(i, j int) { elements[i], elements[j] = elements[j], elements[i] })
 
-		root, err := buildKdTree(elements, NewRandomizedKdCutPlane[T, *kdElement[T, U]], rki.LeafSize)
+		root, err := buildKdTree(elements, NewRandomizedKdCutPlane[T, *treeElement[T, U]], rki.LeafSize)
 		if err != nil {
 			return fmt.Errorf("build %d-th kdtree failed", i)
 		}
@@ -59,8 +59,8 @@ func (rki *RandomizedKdTreeIndex[T, U, M]) Search(query []T, n uint, r float32) 
 		rki.Build()
 	}
 
-	var search func(elementQueue *collection.UniquePriorityQueue[*kdElement[T, U]], nodeQueue *collection.PriorityQueue[*kdNode[T, U]], node *kdNode[T, U], query []T, metric M, r float32)
-	search = func(elementQueue *collection.UniquePriorityQueue[*kdElement[T, U]], nodeQueue *collection.PriorityQueue[*kdNode[T, U]], node *kdNode[T, U], query []T, metric M, r float32) {
+	var search func(elementQueue *collection.UniquePriorityQueue[*treeElement[T, U]], nodeQueue *collection.PriorityQueue[*treeNode[T, U]], node *treeNode[T, U], query []T, metric M, r float32)
+	search = func(elementQueue *collection.UniquePriorityQueue[*treeElement[T, U]], nodeQueue *collection.PriorityQueue[*treeNode[T, U]], node *treeNode[T, U], query []T, metric M, r float32) {
 		if node == nil {
 			return
 		}
@@ -84,8 +84,8 @@ func (rki *RandomizedKdTreeIndex[T, U, M]) Search(query []T, n uint, r float32) 
 	}
 
 	m := 32
-	elementQueue := collection.NewUniquePriorityQueue[*kdElement[T, U]](m)
-	nodeQueue := collection.NewPriorityQueue[*kdNode[T, U]](m)
+	elementQueue := collection.NewUniquePriorityQueue[*treeElement[T, U]](m)
+	nodeQueue := collection.NewPriorityQueue[*treeNode[T, U]](m)
 	for i, root := range rki.Roots {
 		if root == nil {
 			return nil, fmt.Errorf("%d-th index is not created", i)
@@ -118,8 +118,8 @@ func (rki *RandomizedKdTreeIndex[T, U, M]) Search(query []T, n uint, r float32) 
 func NewRandomizedKdTreeIndex[T number.Number, U any, M metric.Metric[T]](dim uint, leafSize uint, nTrees uint) *RandomizedKdTreeIndex[T, U, M] {
 	return &RandomizedKdTreeIndex[T, U, M]{
 		Dim:      dim,
-		Pool:     make([]*kdElement[T, U], 0),
-		Roots:    make([]*kdNode[T, U], nTrees),
+		Pool:     make([]*treeElement[T, U], 0),
+		Roots:    make([]*treeNode[T, U], nTrees),
 		LeafSize: leafSize,
 	}
 }

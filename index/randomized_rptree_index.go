@@ -59,15 +59,29 @@ func (rri *RandomizedRpTreeIndex[T, U, M]) Search(query []T, n uint, r float32) 
 		rri.Build()
 	}
 
-	var search func(elementQueue *collection.UniquePriorityQueue[*treeElement[T, U]], nodeQueue *collection.PriorityQueue[*treeNode[T, U]], node *treeNode[T, U], query []T, metric M, r float32)
-	search = func(elementQueue *collection.UniquePriorityQueue[*treeElement[T, U]], nodeQueue *collection.PriorityQueue[*treeNode[T, U]], node *treeNode[T, U], query []T, metric M, r float32) {
+	m := 32
+	elementQueue := collection.NewUniquePriorityQueue[*treeElement[T, U]](m)
+	nodeQueue := collection.NewPriorityQueue[*treeNode[T, U]](m)
+	for i, root := range rri.Roots {
+		if root == nil {
+			return nil, fmt.Errorf("%d-th index is not created", i)
+		}
+
+		nodeQueue.Push(root, float64(math.MaxFloat32))
+	}
+
+	for elementQueue.Len() < m && 0 < nodeQueue.Len() {
+		node, err := nodeQueue.Pop()
+		if err != nil {
+			return nil, err
+		}
 		if node == nil {
-			return
+			continue
 		}
 
 		if node.Left == nil && node.Right == nil {
 			for _, element := range node.Elements {
-				distance := metric.CalcDistance(query, element.Feature)
+				distance := rri.Metric.CalcDistance(query, element.Feature)
 				if distance < r {
 					elementQueue.Push(element, float64(distance))
 				}
@@ -78,28 +92,9 @@ func (rri *RandomizedRpTreeIndex[T, U, M]) Search(query []T, n uint, r float32) 
 			if 0.0 < distanceToCutPlane {
 				primaryNode, secondaryNode = secondaryNode, primaryNode
 			}
-			search(elementQueue, nodeQueue, primaryNode, query, metric, r)
-			nodeQueue.Push(secondaryNode, math.Abs(distanceToCutPlane))
+			nodeQueue.Push(primaryNode, math.Abs(distanceToCutPlane))
+			nodeQueue.Push(secondaryNode, -math.Abs(distanceToCutPlane))
 		}
-	}
-
-	m := 32
-	elementQueue := collection.NewUniquePriorityQueue[*treeElement[T, U]](m)
-	nodeQueue := collection.NewPriorityQueue[*treeNode[T, U]](m)
-	for i, root := range rri.Roots {
-		if root == nil {
-			return nil, fmt.Errorf("%d-th index is not created", i)
-		}
-
-		search(elementQueue, nodeQueue, root, query, rri.Metric, r)
-	}
-
-	for elementQueue.Len() < m && 0 < nodeQueue.Len() {
-		node, err := nodeQueue.Pop()
-		if err != nil {
-			return nil, err
-		}
-		search(elementQueue, nodeQueue, node, query, rri.Metric, r)
 	}
 
 	n = number.Min(n, uint(elementQueue.Len()))

@@ -22,6 +22,11 @@ func (fi *flatIndex[T, U, M]) Add(feature []T, item U) {
 	fi.items = append(fi.items, item)
 }
 
+type Candidate[U any] struct {
+	Distance float32
+	Item     U
+}
+
 func (fi flatIndex[T, U, M]) Search(query []T, n uint, r float32) ([]U, error) {
 	candidates := make([]Candidate[U], n+1)
 	for i := range candidates {

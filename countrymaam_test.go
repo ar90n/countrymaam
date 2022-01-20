@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
-
-	"github.com/ar90n/countrymaam/index"
 )
 
 func TestSearchKNNVectors(t *testing.T) {
@@ -40,31 +38,31 @@ func TestSearchKNNVectors(t *testing.T) {
 	for _, alg := range []Algorithm{
 		{
 			"FlatIndex",
-			index.NewFlatIndex[float32, int](datasetDim),
+			NewFlatIndex[float32, int](datasetDim),
 		},
 		{
 			"KDTreeIndex-lefSize:1",
-			index.NewKdTreeIndex[float32, int](datasetDim, 1),
+			NewKdTreeIndex[float32, int](datasetDim, 1),
 		},
 		{
 			"KDTreeIndex-leafSize:5",
-			index.NewKdTreeIndex[float32, int](datasetDim, 5),
+			NewKdTreeIndex[float32, int](datasetDim, 5),
 		},
 		{
 			"RandomizedKDTreeIndex-lefSize:1-5",
-			index.NewRandomizedKdTreeIndex[float32, int](datasetDim, 1, 5),
+			NewRandomizedKdTreeIndex[float32, int](datasetDim, 1, 5),
 		},
 		{
 			"RpTreeIndex-lefSize:1",
-			index.NewRpTreeIndex[float32, int](datasetDim, 1),
+			NewRpTreeIndex[float32, int](datasetDim, 1),
 		},
 		{
 			"RpTreeIndex-lefSize:5",
-			index.NewRpTreeIndex[float32, int](datasetDim, 5),
+			NewRpTreeIndex[float32, int](datasetDim, 5),
 		},
 		{
 			"RandomizedRpTreeIndex-lefSize:1-5",
-			index.NewRandomizedRpTreeIndex[float32, int](datasetDim, 1, 5),
+			NewRandomizedRpTreeIndex[float32, int](datasetDim, 1, 5),
 		},
 	} {
 		t.Run(alg.Name, func(t *testing.T) {

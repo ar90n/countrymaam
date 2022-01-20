@@ -1,8 +1,8 @@
-package index
+package countrymaam
 
 import (
-	"math"
 	"errors"
+	"math"
 	"math/rand"
 
 	"github.com/ar90n/countrymaam/collection"
@@ -102,7 +102,7 @@ func NewRandomizedKdCutPlane[T number.Number, U any](elements []U, selector func
 
 type rpCutPlane[T number.Number] struct {
 	NormalVector []T
-	A T
+	A            T
 }
 
 func (cp rpCutPlane[T]) Evaluate(feature []T) bool {
@@ -143,7 +143,7 @@ func NewRpCutPlane[T number.Number, U any](elements []U, selector func(element U
 			feature := selector(element)
 			lhsSqDist := 0.0
 			rhsSqDist := 0.0
-			for j :=  range feature {
+			for j := range feature {
 				lhsDiff := float64(lhsCenter[j]) - float64(feature[j])
 				lhsSqDist += lhsDiff * lhsDiff
 				rhsDiff := float64(rhsCenter[j]) - float64(feature[j])
@@ -152,12 +152,12 @@ func NewRpCutPlane[T number.Number, U any](elements []U, selector func(element U
 
 			if lhsSqDist < rhsSqDist {
 				for j, v := range feature {
-					lhsCenter[j] = (lhsCenter[j] * float64(lhsCount) + float64(v)) / float64(lhsCount + 1)
+					lhsCenter[j] = (lhsCenter[j]*float64(lhsCount) + float64(v)) / float64(lhsCount+1)
 				}
 				lhsCount++
 			} else {
 				for j, v := range feature {
-					rhsCenter[j] = (rhsCenter[j] * float64(rhsCount) + float64(v)) / float64(rhsCount + 1)
+					rhsCenter[j] = (rhsCenter[j]*float64(rhsCount) + float64(v)) / float64(rhsCount+1)
 				}
 				rhsCount++
 			}
@@ -177,13 +177,13 @@ func NewRpCutPlane[T number.Number, U any](elements []U, selector func(element U
 	}
 	fa := 0.0
 	for i := 0; i < dim; i++ {
-		fa -= float64(normalVector[i]) * float64(rhsCenter[i] + lhsCenter[i]) / 2.0
+		fa -= float64(normalVector[i]) * float64(rhsCenter[i]+lhsCenter[i]) / 2.0
 	}
 	a := number.Cast[float64, T](fa)
 
 	cutPlane := rpCutPlane[T]{
 		NormalVector: normalVector,
-		A: a,
+		A:            a,
 	}
 	return &cutPlane, nil
 }

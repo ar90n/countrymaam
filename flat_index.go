@@ -1,4 +1,4 @@
-package index
+package countrymaam
 
 import (
 	"math"
@@ -49,12 +49,4 @@ func (fi flatIndex[T, U]) Search(query []T, n uint, r float64) ([]Candidate[U], 
 
 func (fi flatIndex[T, U]) Build() error {
 	return nil
-}
-
-func NewFlatIndex[T number.Number, U any](dim uint) *flatIndex[T, U] {
-	return &flatIndex[T, U]{
-		dim:      dim,
-		features: make([][]T, 0),
-		items:    make([]U, 0),
-	}
 }

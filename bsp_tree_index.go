@@ -1,4 +1,4 @@
-package index
+package countrymaam
 
 import (
 	"errors"
@@ -28,46 +28,6 @@ type bspTreeIndex[T number.Number, U any] struct {
 	roots       []*treeNode[T, U]
 	leafSize    uint
 	newCutPlane func(elements []*treeElement[T, U], selector func(element *treeElement[T, U]) []T) (CutPlane[T], error)
-}
-
-func NewKdTreeIndex[T number.Number, U any](dim uint, leafSize uint) *bspTreeIndex[T, U] {
-	return &bspTreeIndex[T, U]{
-		dim:         dim,
-		pool:        make([]*treeElement[T, U], 0),
-		roots:       make([]*treeNode[T, U], 1),
-		leafSize:    leafSize,
-		newCutPlane: NewKdCutPlane[T, *treeElement[T, U]],
-	}
-}
-
-func NewRpTreeIndex[T number.Number, U any](dim uint, leafSize uint) *bspTreeIndex[T, U] {
-	return &bspTreeIndex[T, U]{
-		dim:         dim,
-		pool:        make([]*treeElement[T, U], 0),
-		roots:       make([]*treeNode[T, U], 1),
-		leafSize:    leafSize,
-		newCutPlane: NewRpCutPlane[T, *treeElement[T, U]],
-	}
-}
-
-func NewRandomizedKdTreeIndex[T number.Number, U any](dim uint, leafSize uint, nTrees uint) *bspTreeIndex[T, U] {
-	return &bspTreeIndex[T, U]{
-		dim:         dim,
-		pool:        make([]*treeElement[T, U], 0),
-		roots:       make([]*treeNode[T, U], nTrees),
-		leafSize:    leafSize,
-		newCutPlane: NewRandomizedKdCutPlane[T, *treeElement[T, U]],
-	}
-}
-
-func NewRandomizedRpTreeIndex[T number.Number, U any](dim uint, leafSize uint, nTrees uint) *bspTreeIndex[T, U] {
-	return &bspTreeIndex[T, U]{
-		dim:         dim,
-		pool:        make([]*treeElement[T, U], 0),
-		roots:       make([]*treeNode[T, U], nTrees),
-		leafSize:    leafSize,
-		newCutPlane: NewRpCutPlane[T, *treeElement[T, U]],
-	}
 }
 
 func (bsp *bspTreeIndex[T, U]) Add(feature []T, item U) {

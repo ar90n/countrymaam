@@ -60,7 +60,7 @@ func (rri *RandomizedRpTreeIndex[T, U, M]) Search(query []T, n uint, r float32) 
 	}
 
 	m := 32
-	elementQueue := collection.NewUniquePriorityQueue[*treeElement[T, U]](m)
+	itemQueue := collection.NewUniquePriorityQueue[*U](m)
 	nodeQueue := collection.NewPriorityQueue[*treeNode[T, U]](m)
 	for i, root := range rri.Roots {
 		if root == nil {
@@ -70,7 +70,7 @@ func (rri *RandomizedRpTreeIndex[T, U, M]) Search(query []T, n uint, r float32) 
 		nodeQueue.Push(root, float64(math.MaxFloat32))
 	}
 
-	for elementQueue.Len() < m && 0 < nodeQueue.Len() {
+	for itemQueue.Len() < m && 0 < nodeQueue.Len() {
 		node, err := nodeQueue.Pop()
 		if err != nil {
 			return nil, err
@@ -83,28 +83,23 @@ func (rri *RandomizedRpTreeIndex[T, U, M]) Search(query []T, n uint, r float32) 
 			for _, element := range node.Elements {
 				distance := rri.Metric.CalcDistance(query, element.Feature)
 				if distance < r {
-					elementQueue.Push(element, float64(distance))
+					itemQueue.Push(&element.Item, float64(distance))
 				}
 			}
 		} else {
 			distanceToCutPlane := node.CutPlane.Distance(query)
-			primaryNode, secondaryNode := node.Left, node.Right
-			if 0.0 < distanceToCutPlane {
-				primaryNode, secondaryNode = secondaryNode, primaryNode
-			}
-			nodeQueue.Push(primaryNode, math.Abs(distanceToCutPlane))
-			nodeQueue.Push(secondaryNode, -math.Abs(distanceToCutPlane))
+			nodeQueue.Push(node.Right, distanceToCutPlane)
+			nodeQueue.Push(node.Left, -distanceToCutPlane)
 		}
 	}
 
-	n = number.Min(n, uint(elementQueue.Len()))
-	items := make([]U, n)
-	for i := uint(0); i < n; i++ {
-		element, err := elementQueue.Pop()
+	items := make([]U, number.Min(n, uint(itemQueue.Len())))
+	for i := range items {
+		item, err := itemQueue.Pop()
 		if err != nil {
 			return nil, err
 		}
-		items[i] = element.Item
+		items[i] = *item
 	}
 
 	return items, nil

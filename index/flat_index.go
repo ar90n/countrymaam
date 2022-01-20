@@ -4,25 +4,23 @@ import (
 	"math"
 	"sort"
 
-	"github.com/ar90n/countrymaam/metric"
 	"github.com/ar90n/countrymaam/number"
 )
 
-type flatIndex[T number.Number, U any, M metric.Metric[T]] struct {
+type flatIndex[T number.Number, U any] struct {
 	dim      uint
 	features [][]T
 	items    []U
-	metric   M
 }
 
-var _ = (*flatIndex[float32, int, metric.SqL2Dist[float32]])(nil)
+var _ = (*flatIndex[float32, int])(nil)
 
-func (fi *flatIndex[T, U, M]) Add(feature []T, item U) {
+func (fi *flatIndex[T, U]) Add(feature []T, item U) {
 	fi.features = append(fi.features, feature)
 	fi.items = append(fi.items, item)
 }
 
-func (fi flatIndex[T, U, M]) Search(query []T, n uint, r float32) ([]Candidate[U], error) {
+func (fi flatIndex[T, U]) Search(query []T, n uint, r float64) ([]Candidate[U], error) {
 	candidates := make([]Candidate[U], n+1)
 	for i := range candidates {
 		candidates[i].Distance = math.MaxFloat32
@@ -30,7 +28,7 @@ func (fi flatIndex[T, U, M]) Search(query []T, n uint, r float32) ([]Candidate[U
 
 	nCandidates := uint(0)
 	for i, feature := range fi.features {
-		distance := fi.metric.CalcDistance(query, feature)
+		distance := number.CalcSqDistance(query, feature)
 		if distance < r {
 			nCandidates += 1
 			candidates[n] = Candidate[U]{
@@ -49,12 +47,12 @@ func (fi flatIndex[T, U, M]) Search(query []T, n uint, r float32) ([]Candidate[U
 	return candidates[:nCandidates], nil
 }
 
-func (fi flatIndex[T, U, M]) Build() error {
+func (fi flatIndex[T, U]) Build() error {
 	return nil
 }
 
-func NewFlatIndex[T number.Number, U any, M metric.Metric[T]](dim uint) *flatIndex[T, U, M] {
-	return &flatIndex[T, U, M]{
+func NewFlatIndex[T number.Number, U any](dim uint) *flatIndex[T, U] {
+	return &flatIndex[T, U]{
 		dim:      dim,
 		features: make([][]T, 0),
 		items:    make([]U, 0),

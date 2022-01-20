@@ -31,3 +31,13 @@ func Max[T Number](x, y T) T {
 	}
 	return y
 }
+
+func CalcSqDistance[T Number](x, y []T) float64 {
+	dist := 0.0
+	for i := range x {
+		diff := float64(x[i]) - float64(y[i])
+		dist += diff * diff
+	}
+
+	return dist
+}

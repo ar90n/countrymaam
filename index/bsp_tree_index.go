@@ -7,7 +7,6 @@ import (
 	"math/rand"
 
 	"github.com/ar90n/countrymaam/collection"
-	"github.com/ar90n/countrymaam/metric"
 	"github.com/ar90n/countrymaam/number"
 )
 
@@ -23,17 +22,16 @@ type treeNode[T number.Number, U any] struct {
 	Right    *treeNode[T, U]
 }
 
-type bspTreeIndex[T number.Number, U any, M metric.Metric[T]] struct {
+type bspTreeIndex[T number.Number, U any] struct {
 	dim         uint
 	pool        []*treeElement[T, U]
-	metric      M
 	roots       []*treeNode[T, U]
 	leafSize    uint
 	newCutPlane func(elements []*treeElement[T, U], selector func(element *treeElement[T, U]) []T) (CutPlane[T], error)
 }
 
-func NewKdTreeIndex[T number.Number, U any, M metric.Metric[T]](dim uint, leafSize uint) *bspTreeIndex[T, U, M] {
-	return &bspTreeIndex[T, U, M]{
+func NewKdTreeIndex[T number.Number, U any](dim uint, leafSize uint) *bspTreeIndex[T, U] {
+	return &bspTreeIndex[T, U]{
 		dim:         dim,
 		pool:        make([]*treeElement[T, U], 0),
 		roots:       make([]*treeNode[T, U], 1),
@@ -42,8 +40,8 @@ func NewKdTreeIndex[T number.Number, U any, M metric.Metric[T]](dim uint, leafSi
 	}
 }
 
-func NewRpTreeIndex[T number.Number, U any, M metric.Metric[T]](dim uint, leafSize uint) *bspTreeIndex[T, U, M] {
-	return &bspTreeIndex[T, U, M]{
+func NewRpTreeIndex[T number.Number, U any](dim uint, leafSize uint) *bspTreeIndex[T, U] {
+	return &bspTreeIndex[T, U]{
 		dim:         dim,
 		pool:        make([]*treeElement[T, U], 0),
 		roots:       make([]*treeNode[T, U], 1),
@@ -52,8 +50,8 @@ func NewRpTreeIndex[T number.Number, U any, M metric.Metric[T]](dim uint, leafSi
 	}
 }
 
-func NewRandomizedKdTreeIndex[T number.Number, U any, M metric.Metric[T]](dim uint, leafSize uint, nTrees uint) *bspTreeIndex[T, U, M] {
-	return &bspTreeIndex[T, U, M]{
+func NewRandomizedKdTreeIndex[T number.Number, U any](dim uint, leafSize uint, nTrees uint) *bspTreeIndex[T, U] {
+	return &bspTreeIndex[T, U]{
 		dim:         dim,
 		pool:        make([]*treeElement[T, U], 0),
 		roots:       make([]*treeNode[T, U], nTrees),
@@ -62,8 +60,8 @@ func NewRandomizedKdTreeIndex[T number.Number, U any, M metric.Metric[T]](dim ui
 	}
 }
 
-func NewRandomizedRpTreeIndex[T number.Number, U any, M metric.Metric[T]](dim uint, leafSize uint, nTrees uint) *bspTreeIndex[T, U, M] {
-	return &bspTreeIndex[T, U, M]{
+func NewRandomizedRpTreeIndex[T number.Number, U any](dim uint, leafSize uint, nTrees uint) *bspTreeIndex[T, U] {
+	return &bspTreeIndex[T, U]{
 		dim:         dim,
 		pool:        make([]*treeElement[T, U], 0),
 		roots:       make([]*treeNode[T, U], nTrees),
@@ -72,7 +70,7 @@ func NewRandomizedRpTreeIndex[T number.Number, U any, M metric.Metric[T]](dim ui
 	}
 }
 
-func (bsp *bspTreeIndex[T, U, M]) Add(feature []T, item U) {
+func (bsp *bspTreeIndex[T, U]) Add(feature []T, item U) {
 	bsp.pool = append(bsp.pool, &treeElement[T, U]{
 		Item:    item,
 		Feature: feature,
@@ -82,7 +80,7 @@ func (bsp *bspTreeIndex[T, U, M]) Add(feature []T, item U) {
 	}
 }
 
-func (bsp *bspTreeIndex[T, U, M]) Build() error {
+func (bsp *bspTreeIndex[T, U]) Build() error {
 	if len(bsp.pool) == 0 {
 		return errors.New("empty pool")
 	}
@@ -140,7 +138,7 @@ func (bsp *bspTreeIndex[T, U, M]) Build() error {
 	return nil
 }
 
-func (bsp *bspTreeIndex[T, U, M]) Search(query []T, n uint, r float32) ([]Candidate[U], error) {
+func (bsp *bspTreeIndex[T, U]) Search(query []T, n uint, r float64) ([]Candidate[U], error) {
 	hasIndex := true
 	for i := range bsp.roots {
 		if bsp.roots[i] == nil {
@@ -174,7 +172,7 @@ func (bsp *bspTreeIndex[T, U, M]) Search(query []T, n uint, r float32) ([]Candid
 
 		if node.Left == nil && node.Right == nil {
 			for _, element := range node.Elements {
-				distance := bsp.metric.CalcDistance(query, element.Feature)
+				distance := number.CalcSqDistance(query, element.Feature)
 				if distance < r {
 					itemQueue.Push(&element.Item, float64(distance))
 				}
@@ -195,7 +193,7 @@ func (bsp *bspTreeIndex[T, U, M]) Search(query []T, n uint, r float32) ([]Candid
 		itemQueue.Pop()
 
 		items[i].Item = *item.Item
-		items[i].Distance = float32(item.Priority)
+		items[i].Distance = item.Priority
 	}
 
 	return items, nil

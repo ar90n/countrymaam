@@ -3,6 +3,7 @@ package countrymaam
 import (
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"math/rand"
 
@@ -22,26 +23,25 @@ type treeNode[T number.Number, U any] struct {
 	Right    *treeNode[T, U]
 }
 
-type bspTreeIndex[T number.Number, U any] struct {
-	dim         uint
-	pool        []*treeElement[T, U]
-	roots       []*treeNode[T, U]
-	leafSize    uint
-	newCutPlane func(elements []*treeElement[T, U], selector func(element *treeElement[T, U]) []T) (CutPlane[T], error)
+type bspTreeIndex[T number.Number, U any, C CutPlane[T]] struct {
+	Dim      uint
+	Pool     []*treeElement[T, U]
+	Roots    []*treeNode[T, U]
+	LeafSize uint
 }
 
-func (bsp *bspTreeIndex[T, U]) Add(feature []T, item U) {
-	bsp.pool = append(bsp.pool, &treeElement[T, U]{
+func (bsp *bspTreeIndex[T, U, C]) Add(feature []T, item U) {
+	bsp.Pool = append(bsp.Pool, &treeElement[T, U]{
 		Item:    item,
 		Feature: feature,
 	})
-	for i := range bsp.roots {
-		bsp.roots[i] = nil
+	for i := range bsp.Roots {
+		bsp.Roots[i] = nil
 	}
 }
 
-func (bsp *bspTreeIndex[T, U]) Build() error {
-	if len(bsp.pool) == 0 {
+func (bsp *bspTreeIndex[T, U, C]) Build() error {
+	if len(bsp.Pool) == 0 {
 		return errors.New("empty pool")
 	}
 
@@ -51,15 +51,19 @@ func (bsp *bspTreeIndex[T, U]) Build() error {
 			return nil, nil
 		}
 
-		if uint(len(elements)) <= bsp.leafSize {
+		if uint(len(elements)) <= bsp.LeafSize {
 			return &treeNode[T, U]{
 				Elements: elements,
 			}, nil
 		}
 
-		cutPlane, err := bsp.newCutPlane(elements, func(element *treeElement[T, U]) []T {
-			return element.Feature
-		})
+		features := make([][]T, 0)
+		features = append(features, elements[0].Feature)
+		for _, element := range elements[1:] {
+			features = append(features, element.Feature)
+		}
+
+		cutPlane, err := (*new(C)).Construct(features)
 		if err != nil {
 			return nil, err
 		}
@@ -85,23 +89,23 @@ func (bsp *bspTreeIndex[T, U]) Build() error {
 		}, nil
 	}
 
-	for i := range bsp.roots {
-		elements := append([]*treeElement[T, U]{}, bsp.pool...)
+	for i := range bsp.Roots {
+		elements := append([]*treeElement[T, U]{}, bsp.Pool...)
 		rand.Shuffle(len(elements), func(i, j int) { elements[i], elements[j] = elements[j], elements[i] })
 
 		root, err := buildTree(elements)
 		if err != nil {
 			return fmt.Errorf("build %d-th index failed", i)
 		}
-		bsp.roots[i] = root
+		bsp.Roots[i] = root
 	}
 	return nil
 }
 
-func (bsp *bspTreeIndex[T, U]) Search(query []T, n uint, r float64) ([]Candidate[U], error) {
+func (bsp *bspTreeIndex[T, U, C]) Search(query []T, n uint, r float64) ([]Candidate[U], error) {
 	hasIndex := true
-	for i := range bsp.roots {
-		if bsp.roots[i] == nil {
+	for i := range bsp.Roots {
+		if bsp.Roots[i] == nil {
 			hasIndex = false
 			break
 		}
@@ -113,7 +117,7 @@ func (bsp *bspTreeIndex[T, U]) Search(query []T, n uint, r float64) ([]Candidate
 	m := 32
 	itemQueue := collection.NewUniquePriorityQueue[*U](m)
 	nodeQueue := collection.NewPriorityQueue[*treeNode[T, U]](m)
-	for i, root := range bsp.roots {
+	for i, root := range bsp.Roots {
 		if root == nil {
 			return nil, fmt.Errorf("%d-th index is not created", i)
 		}
@@ -157,4 +161,8 @@ func (bsp *bspTreeIndex[T, U]) Search(query []T, n uint, r float64) ([]Candidate
 	}
 
 	return items, nil
+}
+
+func (bsp bspTreeIndex[T, U, C]) Save(w io.Writer) error {
+	return saveIndex(&bsp, w)
 }

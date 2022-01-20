@@ -22,12 +22,7 @@ func (fi *flatIndex[T, U, M]) Add(feature []T, item U) {
 	fi.items = append(fi.items, item)
 }
 
-type Candidate[U any] struct {
-	Distance float32
-	Item     U
-}
-
-func (fi flatIndex[T, U, M]) Search(query []T, n uint, r float32) ([]U, error) {
+func (fi flatIndex[T, U, M]) Search(query []T, n uint, r float32) ([]Candidate[U], error) {
 	candidates := make([]Candidate[U], n+1)
 	for i := range candidates {
 		candidates[i].Distance = math.MaxFloat32
@@ -51,11 +46,7 @@ func (fi flatIndex[T, U, M]) Search(query []T, n uint, r float32) ([]U, error) {
 		nCandidates = n
 	}
 
-	results := make([]U, nCandidates)
-	for i, c := range candidates[:nCandidates] {
-		results[i] = c.Item
-	}
-	return results, nil
+	return candidates[:nCandidates], nil
 }
 
 func (fi flatIndex[T, U, M]) Build() error {

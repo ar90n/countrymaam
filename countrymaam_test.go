@@ -113,7 +113,11 @@ func TestSearchKNNVectors(t *testing.T) {
 						t.Errorf("Expected 1 result, got %d", len(results))
 					}
 
-					if !reflect.DeepEqual(results, tc.Expected) {
+					resultIndice := []int{}
+					for _, v := range results {
+						resultIndice = append(resultIndice, v.Item)
+					}
+					if !reflect.DeepEqual(resultIndice, tc.Expected) {
 						t.Errorf("Expected results to be %v, got %v", tc.Expected, results)
 					}
 				})

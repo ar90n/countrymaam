@@ -140,7 +140,7 @@ func (bsp *bspTreeIndex[T, U, M]) Build() error {
 	return nil
 }
 
-func (bsp *bspTreeIndex[T, U, M]) Search(query []T, n uint, r float32) ([]U, error) {
+func (bsp *bspTreeIndex[T, U, M]) Search(query []T, n uint, r float32) ([]Candidate[U], error) {
 	hasIndex := true
 	for i := range bsp.roots {
 		if bsp.roots[i] == nil {
@@ -186,13 +186,16 @@ func (bsp *bspTreeIndex[T, U, M]) Search(query []T, n uint, r float32) ([]U, err
 		}
 	}
 
-	items := make([]U, number.Min(n, uint(itemQueue.Len())))
+	items := make([]Candidate[U], number.Min(n, uint(itemQueue.Len())))
 	for i := range items {
-		item, err := itemQueue.Pop()
+		item, err := itemQueue.PeekWithPriority(0)
 		if err != nil {
 			return nil, err
 		}
-		items[i] = *item
+		itemQueue.Pop()
+
+		items[i].Item = *item.Item
+		items[i].Distance = float32(item.Priority)
 	}
 
 	return items, nil

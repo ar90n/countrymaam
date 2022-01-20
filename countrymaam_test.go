@@ -45,11 +45,11 @@ func TestSearchKNNVectors(t *testing.T) {
 		},
 		{
 			"KDTreeIndex-lefSize:1",
-			index.NewKDTreeIndex[float32, int, metric.SqL2Dist[float32]](datasetDim, 1),
+			index.NewKdTreeIndex[float32, int, metric.SqL2Dist[float32]](datasetDim, 1),
 		},
 		{
 			"KDTreeIndex-leafSize:5",
-			index.NewKDTreeIndex[float32, int, metric.SqL2Dist[float32]](datasetDim, 5),
+			index.NewKdTreeIndex[float32, int, metric.SqL2Dist[float32]](datasetDim, 5),
 		},
 		{
 			"RandomizedKDTreeIndex-lefSize:1-5",

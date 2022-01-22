@@ -9,37 +9,37 @@ import (
 	"github.com/ar90n/countrymaam/number"
 )
 
-type CutPlane[T number.Number] interface {
+type CutPlane[T number.Number, U any] interface {
 	Evaluate(feature []T) bool
 	Distance(feature []T) float64
-	Construct(features [][]T) (CutPlane[T], error)
+	Construct(features []*treeElement[T, U]) (CutPlane[T, U], error)
 }
 
-type kdCutPlane[T number.Number] struct {
+type kdCutPlane[T number.Number, U any] struct {
 	Axis  uint
 	Value T
 }
 
-func (cp kdCutPlane[T]) Evaluate(feature []T) bool {
+func (cp kdCutPlane[T, U]) Evaluate(feature []T) bool {
 	return 0.0 <= cp.Distance(feature)
 }
 
-func (cp kdCutPlane[T]) Distance(feature []T) float64 {
+func (cp kdCutPlane[T, U]) Distance(feature []T) float64 {
 	return float64(feature[cp.Axis] - cp.Value)
 }
 
-func (cp kdCutPlane[T]) Construct(features [][]T) (CutPlane[T], error) {
-	minValues := append([]T{}, features[0]...)
-	maxValues := append([]T{}, features[0]...)
-	for _, feature := range features[1:] {
-		for j, v := range feature {
+func (cp kdCutPlane[T, U]) Construct(elements []*treeElement[T, U]) (CutPlane[T, U], error) {
+	minValues := append([]T{}, elements[0].Feature...)
+	maxValues := append([]T{}, elements[0].Feature...)
+	for _, element := range elements[1:] {
+		for j, v := range element.Feature {
 			minValues[j] = number.Min(minValues[j], v)
 			maxValues[j] = number.Max(maxValues[j], v)
 		}
 	}
 
 	maxRange := maxValues[0] - minValues[0]
-	cutPlane := kdCutPlane[T]{
+	cutPlane := kdCutPlane[T, U]{
 		Axis:  uint(0),
 		Value: (maxValues[0] + minValues[0]) / 2,
 	}
@@ -47,7 +47,7 @@ func (cp kdCutPlane[T]) Construct(features [][]T) (CutPlane[T], error) {
 		diff := maxValues[i] - minValues[i]
 		if maxRange < diff {
 			maxRange = diff
-			cutPlane = kdCutPlane[T]{
+			cutPlane = kdCutPlane[T, U]{
 				Axis:  i,
 				Value: (maxValues[i] + minValues[i]) / 2,
 			}
@@ -57,43 +57,43 @@ func (cp kdCutPlane[T]) Construct(features [][]T) (CutPlane[T], error) {
 	return &cutPlane, nil
 }
 
-type randomizedKdCutPlane[T number.Number] struct {
+type randomizedKdCutPlane[T number.Number, U any] struct {
 	Axis  uint
 	Value T
 }
 
-func (cp randomizedKdCutPlane[T]) Evaluate(feature []T) bool {
+func (cp randomizedKdCutPlane[T, U]) Evaluate(feature []T) bool {
 	return 0.0 <= cp.Distance(feature)
 }
 
-func (cp randomizedKdCutPlane[T]) Distance(feature []T) float64 {
+func (cp randomizedKdCutPlane[T, U]) Distance(feature []T) float64 {
 	return float64(feature[cp.Axis] - cp.Value)
 }
 
-func (cp randomizedKdCutPlane[T]) Construct(features [][]T) (CutPlane[T], error) {
-	if len(features) == 0 {
+func (cp randomizedKdCutPlane[T, U]) Construct(elements []*treeElement[T, U]) (CutPlane[T, U], error) {
+	if len(elements) == 0 {
 		return nil, errors.New("elements is empty")
 	}
 
-	dim := len(features[0])
+	dim := len(elements[0].Feature)
 	accs := make([]float64, dim)
 	sqAccs := make([]float64, dim)
-	for _, feature := range features {
-		for j, v := range feature {
+	for _, element := range elements {
+		for j, v := range element.Feature {
 			v := float64(v)
 			accs[j] += v
 			sqAccs[j] += v * v
 		}
 	}
 
-	invN := 1.0 / float64(len(features))
-	queue := collection.PriorityQueue[*kdCutPlane[T]]{}
+	invN := 1.0 / float64(len(elements))
+	queue := collection.PriorityQueue[*kdCutPlane[T, U]]{}
 	for i := range accs {
 		mean := accs[i] * invN
 		sqMean := sqAccs[i] * invN
 		variance := sqMean - mean*mean
 
-		cutPlane := &kdCutPlane[T]{
+		cutPlane := &kdCutPlane[T, U]{
 			Axis:  uint(i),
 			Value: number.Cast[float64, T](mean),
 		}
@@ -108,17 +108,16 @@ func (cp randomizedKdCutPlane[T]) Construct(features [][]T) (CutPlane[T], error)
 	return queue.Pop()
 }
 
-
-type rpCutPlane[T number.Number] struct {
+type rpCutPlane[T number.Number, U any] struct {
 	NormalVector []T
 	A            T
 }
 
-func (cp rpCutPlane[T]) Evaluate(feature []T) bool {
+func (cp rpCutPlane[T, U]) Evaluate(feature []T) bool {
 	return 0.0 <= cp.Distance(feature)
 }
 
-func (cp rpCutPlane[T]) Distance(feature []T) float64 {
+func (cp rpCutPlane[T, U]) Distance(feature []T) float64 {
 	dot := float64(cp.A)
 	for i := range feature {
 		dot += float64(feature[i]) * float64(cp.NormalVector[i])
@@ -126,31 +125,32 @@ func (cp rpCutPlane[T]) Distance(feature []T) float64 {
 	return dot
 }
 
-func (cp rpCutPlane[T]) Construct(features [][]T) (CutPlane[T], error) {
-	if len(features) == 0 {
+func (cp rpCutPlane[T, U]) Construct(elements []*treeElement[T, U]) (CutPlane[T, U], error) {
+	if len(elements) == 0 {
 		return nil, errors.New("elements is empty")
 	}
 
-	lhsIndex := rand.Intn(len(features))
-	rhsIndex := rand.Intn(len(features) - 1)
+	lhsIndex := rand.Intn(len(elements))
+	rhsIndex := rand.Intn(len(elements) - 1)
 	if lhsIndex <= rhsIndex {
 		rhsIndex++
 	}
 
 	maxIter := 200
-	dim := len(features[lhsIndex])
+	dim := len(elements[lhsIndex].Feature)
 	lhsCenter := make([]float64, dim)
 	rhsCenter := make([]float64, dim)
 	lhsCount := 1
 	rhsCount := 1
 	for i := 0; i < dim; i++ {
-		lhsCenter[i] = float64(features[lhsIndex][i])
-		rhsCenter[i] = float64(features[rhsIndex][i])
+		lhsCenter[i] = float64(elements[lhsIndex].Feature[i])
+		rhsCenter[i] = float64(elements[rhsIndex].Feature[i])
 	}
 	for i := 0; i < maxIter; i++ {
-		for _, feature := range features {
+		for _, element := range elements {
 			lhsSqDist := 0.0
 			rhsSqDist := 0.0
+			feature := element.Feature
 			for j := range feature {
 				lhsDiff := float64(lhsCenter[j]) - float64(feature[j])
 				lhsSqDist += lhsDiff * lhsDiff
@@ -189,7 +189,7 @@ func (cp rpCutPlane[T]) Construct(features [][]T) (CutPlane[T], error) {
 	}
 	a := number.Cast[float64, T](fa)
 
-	cutPlane := rpCutPlane[T]{
+	cutPlane := rpCutPlane[T, U]{
 		NormalVector: normalVector,
 		A:            a,
 	}

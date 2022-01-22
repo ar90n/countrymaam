@@ -67,9 +67,9 @@ func LoadFlatIndex[T number.Number, U any](r io.Reader) (*flatIndex[T, U], error
 	return &index, nil
 }
 
-func NewKdTreeIndex[T number.Number, U any](dim uint, leafSize uint) *bspTreeIndex[T, U, kdCutPlane[T]] {
-	gob.Register(kdCutPlane[T]{})
-	return &bspTreeIndex[T, U, kdCutPlane[T]]{
+func NewKdTreeIndex[T number.Number, U any](dim uint, leafSize uint) *bspTreeIndex[T, U, kdCutPlane[T, U]] {
+	gob.Register(kdCutPlane[T, U]{})
+	return &bspTreeIndex[T, U, kdCutPlane[T, U]]{
 		Dim:      dim,
 		Pool:     make([]*treeElement[T, U], 0),
 		Roots:    make([]*treeNode[T, U], 1),
@@ -77,9 +77,9 @@ func NewKdTreeIndex[T number.Number, U any](dim uint, leafSize uint) *bspTreeInd
 	}
 }
 
-func LoadKdTreeIndex[T number.Number, U any](r io.Reader) (*bspTreeIndex[T, U, kdCutPlane[T]], error) {
-	gob.Register(kdCutPlane[T]{})
-	index, err := loadIndex[bspTreeIndex[T, U, kdCutPlane[T]]](r)
+func LoadKdTreeIndex[T number.Number, U any](r io.Reader) (*bspTreeIndex[T, U, kdCutPlane[T, U]], error) {
+	gob.Register(kdCutPlane[T, U]{})
+	index, err := loadIndex[bspTreeIndex[T, U, kdCutPlane[T, U]]](r)
 	if err != nil {
 		return nil, err
 	}
@@ -87,9 +87,9 @@ func LoadKdTreeIndex[T number.Number, U any](r io.Reader) (*bspTreeIndex[T, U, k
 	return &index, nil
 }
 
-func NewRpTreeIndex[T number.Number, U any](dim uint, leafSize uint) *bspTreeIndex[T, U, rpCutPlane[T]] {
-	gob.Register(rpCutPlane[T]{})
-	return &bspTreeIndex[T, U, rpCutPlane[T]]{
+func NewRpTreeIndex[T number.Number, U any](dim uint, leafSize uint) *bspTreeIndex[T, U, rpCutPlane[T, U]] {
+	gob.Register(rpCutPlane[T, U]{})
+	return &bspTreeIndex[T, U, rpCutPlane[T, U]]{
 		Dim:      dim,
 		Pool:     make([]*treeElement[T, U], 0),
 		Roots:    make([]*treeNode[T, U], 1),
@@ -97,9 +97,9 @@ func NewRpTreeIndex[T number.Number, U any](dim uint, leafSize uint) *bspTreeInd
 	}
 }
 
-func LoadRpTreeIndex[T number.Number, U any](r io.Reader) (*bspTreeIndex[T, U, rpCutPlane[T]], error) {
-	gob.Register(rpCutPlane[T]{})
-	index, err := loadIndex[bspTreeIndex[T, U, rpCutPlane[T]]](r)
+func LoadRpTreeIndex[T number.Number, U any](r io.Reader) (*bspTreeIndex[T, U, rpCutPlane[T, U]], error) {
+	gob.Register(rpCutPlane[T, U]{})
+	index, err := loadIndex[bspTreeIndex[T, U, rpCutPlane[T, U]]](r)
 	if err != nil {
 		return nil, err
 	}
@@ -107,9 +107,9 @@ func LoadRpTreeIndex[T number.Number, U any](r io.Reader) (*bspTreeIndex[T, U, r
 	return &index, nil
 }
 
-func NewRandomizedKdTreeIndex[T number.Number, U any](dim uint, leafSize uint, nTrees uint) *bspTreeIndex[T, U, randomizedKdCutPlane[T]] {
-	gob.Register(randomizedKdCutPlane[T]{})
-	return &bspTreeIndex[T, U, randomizedKdCutPlane[T]]{
+func NewRandomizedKdTreeIndex[T number.Number, U any](dim uint, leafSize uint, nTrees uint) *bspTreeIndex[T, U, randomizedKdCutPlane[T, U]] {
+	gob.Register(randomizedKdCutPlane[T, U]{})
+	return &bspTreeIndex[T, U, randomizedKdCutPlane[T, U]]{
 		Dim:      dim,
 		Pool:     make([]*treeElement[T, U], 0),
 		Roots:    make([]*treeNode[T, U], nTrees),
@@ -117,9 +117,9 @@ func NewRandomizedKdTreeIndex[T number.Number, U any](dim uint, leafSize uint, n
 	}
 }
 
-func LoadRandomizedKdTreeIndex[T number.Number, U any](r io.Reader) (*bspTreeIndex[T, U, randomizedKdCutPlane[T]], error) {
-	gob.Register(randomizedKdCutPlane[T]{})
-	index, err := loadIndex[bspTreeIndex[T, U, randomizedKdCutPlane[T]]](r)
+func LoadRandomizedKdTreeIndex[T number.Number, U any](r io.Reader) (*bspTreeIndex[T, U, randomizedKdCutPlane[T, U]], error) {
+	gob.Register(randomizedKdCutPlane[T, U]{})
+	index, err := loadIndex[bspTreeIndex[T, U, randomizedKdCutPlane[T, U]]](r)
 	if err != nil {
 		return nil, err
 	}
@@ -127,9 +127,9 @@ func LoadRandomizedKdTreeIndex[T number.Number, U any](r io.Reader) (*bspTreeInd
 	return &index, nil
 }
 
-func NewRandomizedRpTreeIndex[T number.Number, U any](dim uint, leafSize uint, nTrees uint) *bspTreeIndex[T, U, rpCutPlane[T]] {
-	gob.Register(rpCutPlane[T]{})
-	return &bspTreeIndex[T, U, rpCutPlane[T]]{
+func NewRandomizedRpTreeIndex[T number.Number, U any](dim uint, leafSize uint, nTrees uint) *bspTreeIndex[T, U, rpCutPlane[T, U]] {
+	gob.Register(rpCutPlane[T, U]{})
+	return &bspTreeIndex[T, U, rpCutPlane[T, U]]{
 		Dim:      dim,
 		Pool:     make([]*treeElement[T, U], 0),
 		Roots:    make([]*treeNode[T, U], nTrees),
@@ -137,9 +137,9 @@ func NewRandomizedRpTreeIndex[T number.Number, U any](dim uint, leafSize uint, n
 	}
 }
 
-func LoadRandomizedRpTreeIndex[T number.Number, U any](r io.Reader) (*bspTreeIndex[T, U, rpCutPlane[T]], error) {
-	gob.Register(rpCutPlane[T]{})
-	index, err := loadIndex[bspTreeIndex[T, U, rpCutPlane[T]]](r)
+func LoadRandomizedRpTreeIndex[T number.Number, U any](r io.Reader) (*bspTreeIndex[T, U, rpCutPlane[T, U]], error) {
+	gob.Register(rpCutPlane[T, U]{})
+	index, err := loadIndex[bspTreeIndex[T, U, rpCutPlane[T, U]]](r)
 	if err != nil {
 		return nil, err
 	}

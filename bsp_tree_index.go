@@ -17,13 +17,13 @@ type treeElement[T number.Number, U any] struct {
 }
 
 type treeNode[T number.Number, U any] struct {
-	CutPlane CutPlane[T]
+	CutPlane CutPlane[T, U]
 	Elements []*treeElement[T, U]
 	Left     *treeNode[T, U]
 	Right    *treeNode[T, U]
 }
 
-type bspTreeIndex[T number.Number, U any, C CutPlane[T]] struct {
+type bspTreeIndex[T number.Number, U any, C CutPlane[T, U]] struct {
 	Dim      uint
 	Pool     []*treeElement[T, U]
 	Roots    []*treeNode[T, U]
@@ -47,23 +47,18 @@ func (bsp *bspTreeIndex[T, U, C]) Build() error {
 
 	var buildTree func(elements []*treeElement[T, U]) (*treeNode[T, U], error)
 	buildTree = func(elements []*treeElement[T, U]) (*treeNode[T, U], error) {
-		if len(elements) == 0 {
+		nElements := uint(len(elements))
+		if nElements == 0 {
 			return nil, nil
 		}
 
-		if uint(len(elements)) <= bsp.LeafSize {
+		if nElements <= bsp.LeafSize {
 			return &treeNode[T, U]{
 				Elements: elements,
 			}, nil
 		}
 
-		features := make([][]T, 0)
-		features = append(features, elements[0].Feature)
-		for _, element := range elements[1:] {
-			features = append(features, element.Feature)
-		}
-
-		cutPlane, err := (*new(C)).Construct(features)
+		cutPlane, err := (*new(C)).Construct(elements)
 		if err != nil {
 			return nil, err
 		}

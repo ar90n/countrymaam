@@ -109,8 +109,8 @@ func (cp randomizedKdCutPlane[T, U]) Construct(elements []*treeElement[T, U]) (C
 }
 
 type rpCutPlane[T number.Number, U any] struct {
-	NormalVector []T
-	A            T
+	NormalVector []float64
+	A            float64
 }
 
 func (cp rpCutPlane[T, U]) Evaluate(feature []T) bool {
@@ -118,7 +118,7 @@ func (cp rpCutPlane[T, U]) Evaluate(feature []T) bool {
 }
 
 func (cp rpCutPlane[T, U]) Distance(feature []T) float64 {
-	dot := float64(cp.A)
+	dot := cp.A
 	for i := range feature {
 		dot += float64(feature[i]) * float64(cp.NormalVector[i])
 	}
@@ -136,7 +136,7 @@ func (cp rpCutPlane[T, U]) Construct(elements []*treeElement[T, U]) (CutPlane[T,
 		rhsIndex++
 	}
 
-	maxIter := 200
+	const maxIter = 200
 	dim := len(elements[lhsIndex].Feature)
 	lhsCenter := make([]float64, dim)
 	rhsCenter := make([]float64, dim)
@@ -152,9 +152,9 @@ func (cp rpCutPlane[T, U]) Construct(elements []*treeElement[T, U]) (CutPlane[T,
 			rhsSqDist := 0.0
 			feature := element.Feature
 			for j := range feature {
-				lhsDiff := float64(lhsCenter[j]) - float64(feature[j])
+				lhsDiff := lhsCenter[j] - float64(feature[j])
 				lhsSqDist += lhsDiff * lhsDiff
-				rhsDiff := float64(rhsCenter[j]) - float64(feature[j])
+				rhsDiff := rhsCenter[j] - float64(feature[j])
 				rhsSqDist += rhsDiff * rhsDiff
 			}
 
@@ -173,21 +173,22 @@ func (cp rpCutPlane[T, U]) Construct(elements []*treeElement[T, U]) (CutPlane[T,
 	}
 
 	accSqDiff := 0.0
-	normalVector := make([]T, dim)
+	normalVector := make([]float64, dim)
 	for i := 0; i < dim; i++ {
-		diff := float64(lhsCenter[i] - rhsCenter[i])
-		normalVector[i] = number.Cast[float64, T](diff)
-		accSqDiff += diff
+		diff := lhsCenter[i] - rhsCenter[i]
+		normalVector[i] = diff
+		accSqDiff += diff * diff
 	}
-	norm := math.Sqrt(accSqDiff)
+	norm := math.Sqrt(accSqDiff) + 1e-10
 	for i := 0; i < dim; i++ {
-		normalVector[i] /= number.Cast[float64, T](norm)
+		normalVector[i] /= norm
 	}
-	fa := 0.0
+
+	a := 0.0
 	for i := 0; i < dim; i++ {
-		fa -= float64(normalVector[i]) * float64(rhsCenter[i]+lhsCenter[i]) / 2.0
+		a -= float64(normalVector[i]) * float64(rhsCenter[i]+lhsCenter[i])
 	}
-	a := number.Cast[float64, T](fa)
+	a /= 2.0
 
 	cutPlane := rpCutPlane[T, U]{
 		NormalVector: normalVector,

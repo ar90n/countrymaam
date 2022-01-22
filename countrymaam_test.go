@@ -48,27 +48,27 @@ func TestSearchKNNVectors(t *testing.T) {
 		},
 		{
 			"KDTreeIndex-lefSize:1",
-			NewKdTreeIndex[float32, int](datasetDim, 1),
+			NewKdTreeIndex[float32, int](datasetDim, 1, 32),
 		},
 		{
 			"KDTreeIndex-leafSize:5",
-			NewKdTreeIndex[float32, int](datasetDim, 5),
+			NewKdTreeIndex[float32, int](datasetDim, 5, 32),
 		},
 		{
 			"RandomizedKDTreeIndex-lefSize:1-5",
-			NewRandomizedKdTreeIndex[float32, int](datasetDim, 1, 5),
+			NewRandomizedKdTreeIndex[float32, int](datasetDim, 1, 5, 32),
 		},
 		{
 			"RpTreeIndex-lefSize:1",
-			NewRpTreeIndex[float32, int](datasetDim, 1),
+			NewRpTreeIndex[float32, int](datasetDim, 1, 32),
 		},
 		{
 			"RpTreeIndex-lefSize:5",
-			NewRpTreeIndex[float32, int](datasetDim, 5),
+			NewRpTreeIndex[float32, int](datasetDim, 5, 32),
 		},
 		{
 			"RandomizedRpTreeIndex-lefSize:1-5",
-			NewRandomizedRpTreeIndex[float32, int](datasetDim, 1, 5),
+			NewRandomizedRpTreeIndex[float32, int](datasetDim, 1, 5, 32),
 		},
 	} {
 		t.Run(alg.Name, func(t *testing.T) {
@@ -151,11 +151,11 @@ func TestRebuildIndex(t *testing.T) {
 		},
 		{
 			"KDTreeIndex",
-			NewKdTreeIndex[float32, int](datasetDim, 1),
+			NewKdTreeIndex[float32, int](datasetDim, 1, 32),
 		},
 		{
 			"RandomizedKDTreeIndex",
-			NewRandomizedKdTreeIndex[float32, int](datasetDim, 1, 5),
+			NewRandomizedKdTreeIndex[float32, int](datasetDim, 1, 5, 32),
 		},
 	} {
 		t.Run(alg.Name, func(t *testing.T) {
@@ -230,12 +230,12 @@ func TestBuildIndexWhenPoolIsEmpty(t *testing.T) {
 		},
 		{
 			"KDTreeIndex",
-			NewKdTreeIndex[float32, int](datasetDim, 1),
+			NewKdTreeIndex[float32, int](datasetDim, 1, 32),
 			false,
 		},
 		{
 			"RandomizedKDTreeIndex",
-			NewRandomizedKdTreeIndex[float32, int](datasetDim, 1, 5),
+			NewRandomizedKdTreeIndex[float32, int](datasetDim, 1, 5, 32),
 			false,
 		},
 	} {
@@ -294,21 +294,21 @@ func TestSerDesKNNVectors(t *testing.T) {
 		testSerDes(t, NewFlatIndex[float32, int](datasetDim), dataset)
 	})
 	t.Run("KdTreeIndex-leafSize:1", func(t *testing.T) {
-		testSerDes(t, NewKdTreeIndex[float32, int](datasetDim, 1), dataset)
+		testSerDes(t, NewKdTreeIndex[float32, int](datasetDim, 1, 32), dataset)
 	})
 	t.Run("KDTreeIndex-leafSize:5", func(t *testing.T) {
-		testSerDes(t, NewKdTreeIndex[float32, int](datasetDim, 5), dataset)
+		testSerDes(t, NewKdTreeIndex[float32, int](datasetDim, 5, 32), dataset)
 	})
 	t.Run("RandomizedKDTreeIndex-lefSize:1-5", func(t *testing.T) {
-		testSerDes(t, NewRandomizedKdTreeIndex[float32, int](datasetDim, 1, 5), dataset)
+		testSerDes(t, NewRandomizedKdTreeIndex[float32, int](datasetDim, 1, 5, 32), dataset)
 	})
 	t.Run("RpTreeIndex-lefSize:1", func(t *testing.T) {
-		testSerDes(t, NewRpTreeIndex[float32, int](datasetDim, 1), dataset)
+		testSerDes(t, NewRpTreeIndex[float32, int](datasetDim, 1, 32), dataset)
 	})
 	t.Run("RpTreeIndex-lefSize:5", func(t *testing.T) {
-		testSerDes(t, NewRpTreeIndex[float32, int](datasetDim, 5), dataset)
+		testSerDes(t, NewRpTreeIndex[float32, int](datasetDim, 5, 32), dataset)
 	})
 	t.Run("RandomizedRpTreeIndex-lefSize:1-5", func(t *testing.T) {
-		testSerDes(t, NewRandomizedRpTreeIndex[float32, int](datasetDim, 1, 5), dataset)
+		testSerDes(t, NewRandomizedRpTreeIndex[float32, int](datasetDim, 1, 5, 32), dataset)
 	})
 }

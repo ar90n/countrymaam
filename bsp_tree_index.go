@@ -24,10 +24,11 @@ type treeNode[T number.Number, U any] struct {
 }
 
 type bspTreeIndex[T number.Number, U any, C CutPlane[T, U]] struct {
-	Dim      uint
-	Pool     []*treeElement[T, U]
-	Roots    []*treeNode[T, U]
-	LeafSize uint
+	Dim           uint
+	Pool          []*treeElement[T, U]
+	Roots         []*treeNode[T, U]
+	LeafSize      uint
+	MaxCandidates uint
 }
 
 func (bsp *bspTreeIndex[T, U, C]) Add(feature []T, item U) {
@@ -102,9 +103,9 @@ func (bsp *bspTreeIndex[T, U, C]) Search(query []T, n uint, r float64) ([]Candid
 		bsp.Build()
 	}
 
-	m := 32
-	itemQueue := collection.NewUniquePriorityQueue[*U](m)
-	nodeQueue := collection.NewPriorityQueue[*treeNode[T, U]](m)
+	capacity := number.Min(bsp.MaxCandidates, 5*n)
+	itemQueue := collection.NewUniquePriorityQueue[*U](int(capacity))
+	nodeQueue := collection.NewPriorityQueue[*treeNode[T, U]](int(capacity))
 	for i, root := range bsp.Roots {
 		if root == nil {
 			return nil, fmt.Errorf("%d-th index is not created", i)
@@ -113,13 +114,17 @@ func (bsp *bspTreeIndex[T, U, C]) Search(query []T, n uint, r float64) ([]Candid
 		nodeQueue.Push(root, float64(math.MaxFloat32))
 	}
 
-	for itemQueue.Len() < m && 0 < nodeQueue.Len() {
+	for uint(itemQueue.Len()) < bsp.MaxCandidates && 0 < nodeQueue.Len() {
 		node, err := nodeQueue.Pop()
 		if err != nil {
 			return nil, err
 		}
 		if node == nil {
 			continue
+		}
+
+		if item, err := itemQueue.PeekWithPriority(int(n - 1)); err == nil {
+			r = item.Priority
 		}
 
 		if node.Left == nil && node.Right == nil {
@@ -131,8 +136,12 @@ func (bsp *bspTreeIndex[T, U, C]) Search(query []T, n uint, r float64) ([]Candid
 			}
 		} else {
 			distanceToCutPlane := node.CutPlane.Distance(query)
-			nodeQueue.Push(node.Right, distanceToCutPlane)
-			nodeQueue.Push(node.Left, -distanceToCutPlane)
+			if -r < distanceToCutPlane {
+				nodeQueue.Push(node.Right, distanceToCutPlane)
+			}
+			if distanceToCutPlane < r {
+				nodeQueue.Push(node.Left, -distanceToCutPlane)
+			}
 		}
 	}
 

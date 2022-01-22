@@ -57,21 +57,30 @@ func (pq *PriorityQueue[T]) Push(item T, priority float64) {
 	)
 }
 
-func (pq *PriorityQueue[T]) Pop() (ret T, _ error) {
+func (pq *PriorityQueue[T]) PopWithPriority() (ret withPriority[T], _ error) {
 	if pq.priorityQueue.Len() == 0 {
 		return ret, errors.New("empty queue")
 	}
 	item := heap.Pop(&pq.priorityQueue).(*withPriority[T])
+	return *item, nil
+}
+
+func (pq *PriorityQueue[T]) Pop() (ret T, _ error) {
+	item, err := pq.PopWithPriority()
+	if err != nil {
+		return ret, err
+	}
+
 	return item.Item, nil
 }
 
-func (pq *PriorityQueue[T]) PeekWithPriority(n int) (ret *withPriority[T], _ error) {
+func (pq *PriorityQueue[T]) PeekWithPriority(n int) (ret withPriority[T], _ error) {
 	if pq.priorityQueue.Len() <= n {
 		return ret, fmt.Errorf("index out of range: %d", n)
 	}
 
 	item := pq.priorityQueue[n]
-	return item, nil
+	return *item, nil
 }
 
 func (pq *PriorityQueue[T]) Peek(n int) (ret T, _ error) {

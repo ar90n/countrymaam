@@ -2,9 +2,8 @@ package countrymaam
 
 import (
 	"io"
-	"math"
-	"sort"
 
+	"github.com/ar90n/countrymaam/collection"
 	"github.com/ar90n/countrymaam/number"
 )
 
@@ -22,30 +21,27 @@ func (fi *flatIndex[T, U]) Add(feature []T, item U) {
 }
 
 func (fi flatIndex[T, U]) Search(query []T, n uint, r float64) ([]Candidate[U], error) {
-	candidates := make([]Candidate[U], n+1)
-	for i := range candidates {
-		candidates[i].Distance = math.MaxFloat32
-	}
+	candidates := collection.NewPriorityQueue[U](int(n))
 
-	nCandidates := uint(0)
 	for i, feature := range fi.Features {
 		distance := number.CalcSqDistance(query, feature)
 		if distance < r {
-			nCandidates += 1
-			candidates[n] = Candidate[U]{
-				Distance: distance,
-				Item:     fi.Items[i],
-			}
-			sort.Slice(candidates, func(i, j int) bool {
-				return candidates[i].Distance < candidates[j].Distance
-			})
+			candidates.Push(fi.Items[i], distance)
 		}
 	}
-	if n < nCandidates {
-		nCandidates = n
+
+	items := make([]Candidate[U], number.Min(n, uint(candidates.Len())))
+	for i := range items {
+		item, err := candidates.PopWithPriority()
+		if err != nil {
+			return nil, err
+		}
+
+		items[i].Item = item.Item
+		items[i].Distance = item.Priority
 	}
 
-	return candidates[:nCandidates], nil
+	return items, nil
 }
 
 func (fi flatIndex[T, U]) Build() error {

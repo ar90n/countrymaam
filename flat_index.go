@@ -52,6 +52,10 @@ func (fi flatIndex[T, U]) Build() error {
 	return nil
 }
 
+func (fi flatIndex[T, U]) HasIndex() bool {
+	return true
+}
+
 func (fi flatIndex[T, U]) Save(w io.Writer) error {
 	return saveIndex(&fi, w)
 }

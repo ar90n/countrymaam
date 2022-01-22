@@ -12,6 +12,7 @@ type Index[T number.Number, U any] interface {
 	Add(feature []T, item U)
 	Search(feature []T, n uint, r float64) ([]Candidate[U], error)
 	Build() error
+	HasIndex() bool
 	Save(reader io.Writer) error
 }
 

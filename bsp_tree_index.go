@@ -103,14 +103,7 @@ func (bsp *bspTreeIndex[T, U, C]) Build() error {
 }
 
 func (bsp *bspTreeIndex[T, U, C]) Search(query []T, n uint, r float64) ([]Candidate[U], error) {
-	hasIndex := true
-	for i := range bsp.Roots {
-		if bsp.Roots[i] == nil {
-			hasIndex = false
-			break
-		}
-	}
-	if !hasIndex {
+	if !bsp.HasIndex() {
 		bsp.Build()
 	}
 
@@ -161,6 +154,16 @@ func (bsp *bspTreeIndex[T, U, C]) Search(query []T, n uint, r float64) ([]Candid
 	}
 
 	return items, nil
+}
+
+func (bsp bspTreeIndex[T, U, C]) HasIndex() bool {
+	for i := range bsp.Roots {
+		if bsp.Roots[i] == nil {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (bsp bspTreeIndex[T, U, C]) Save(w io.Writer) error {

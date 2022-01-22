@@ -110,6 +110,7 @@ func LoadRpTreeIndex[T number.Number, U any](r io.Reader) (*bspTreeIndex[T, U, r
 }
 
 func NewRandomizedKdTreeIndex[T number.Number, U any](dim uint, leafSize uint, nTrees uint, maxCandidates uint) *bspTreeIndex[T, U, randomizedKdCutPlane[T, U]] {
+	gob.Register(kdCutPlane[T, U]{})
 	gob.Register(randomizedKdCutPlane[T, U]{})
 	return &bspTreeIndex[T, U, randomizedKdCutPlane[T, U]]{
 		Dim:           dim,
@@ -121,6 +122,7 @@ func NewRandomizedKdTreeIndex[T number.Number, U any](dim uint, leafSize uint, n
 }
 
 func LoadRandomizedKdTreeIndex[T number.Number, U any](r io.Reader) (*bspTreeIndex[T, U, randomizedKdCutPlane[T, U]], error) {
+	gob.Register(kdCutPlane[T, U]{})
 	gob.Register(randomizedKdCutPlane[T, U]{})
 	index, err := loadIndex[bspTreeIndex[T, U, randomizedKdCutPlane[T, U]]](r)
 	if err != nil {

@@ -22,7 +22,7 @@ def main():
     index_name = "rkd-tree"
     leaf_size = 5
     max_candidates = 32
-    tree_num = 1
+    tree_num = 4
     output_name = "index.bin"
     
     p = subprocess.Popen([

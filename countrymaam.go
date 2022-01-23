@@ -71,7 +71,7 @@ func NewKdTreeIndex[T number.Number, U any](dim uint, leafSize uint, maxCandidat
 	gob.Register(kdCutPlane[T, U]{})
 	return &bspTreeIndex[T, U, kdCutPlane[T, U]]{
 		Dim:           dim,
-		Pool:          make([]*treeElement[T, U], 0),
+		Pool:          make([]treeElement[T, U], 0),
 		Roots:         make([]*treeNode[T, U], 1),
 		LeafSize:      leafSize,
 		MaxCandidates: maxCandidates,
@@ -92,7 +92,7 @@ func NewRpTreeIndex[T number.Number, U any](dim uint, leafSize uint, maxCandidat
 	gob.Register(rpCutPlane[T, U]{})
 	return &bspTreeIndex[T, U, rpCutPlane[T, U]]{
 		Dim:           dim,
-		Pool:          make([]*treeElement[T, U], 0),
+		Pool:          make([]treeElement[T, U], 0),
 		Roots:         make([]*treeNode[T, U], 1),
 		LeafSize:      leafSize,
 		MaxCandidates: maxCandidates,
@@ -114,7 +114,7 @@ func NewRandomizedKdTreeIndex[T number.Number, U any](dim uint, leafSize uint, n
 	gob.Register(randomizedKdCutPlane[T, U]{})
 	return &bspTreeIndex[T, U, randomizedKdCutPlane[T, U]]{
 		Dim:           dim,
-		Pool:          make([]*treeElement[T, U], 0),
+		Pool:          make([]treeElement[T, U], 0),
 		Roots:         make([]*treeNode[T, U], nTrees),
 		LeafSize:      leafSize,
 		MaxCandidates: maxCandidates,
@@ -136,7 +136,7 @@ func NewRandomizedRpTreeIndex[T number.Number, U any](dim uint, leafSize uint, n
 	gob.Register(rpCutPlane[T, U]{})
 	return &bspTreeIndex[T, U, rpCutPlane[T, U]]{
 		Dim:           dim,
-		Pool:          make([]*treeElement[T, U], 0),
+		Pool:          make([]treeElement[T, U], 0),
 		Roots:         make([]*treeNode[T, U], nTrees),
 		LeafSize:      leafSize,
 		MaxCandidates: maxCandidates,

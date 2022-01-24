@@ -119,9 +119,8 @@ func (bsp *bspTreeIndex[T, U, C]) Search(query []T, n uint, r float64) ([]Candid
 		bsp.Build()
 	}
 
-	capacity := number.Min(bsp.MaxCandidates, 5*n)
-	itemQueue := collection.NewUniquePriorityQueue[*U](int(capacity))
-	nodeQueue := collection.NewPriorityQueue[nodeQueueItem[T, U]](int(capacity))
+	itemQueue := collection.NewItemQueue[*U](int(n))
+	nodeQueue := collection.NewPriorityQueue[nodeQueueItem[T, U]](int(bsp.MaxCandidates))
 	for i, root := range bsp.Roots {
 		if root == nil {
 			return nil, fmt.Errorf("%d-th index is not created", i)
@@ -130,10 +129,11 @@ func (bsp *bspTreeIndex[T, U, C]) Search(query []T, n uint, r float64) ([]Candid
 		nodeQueue.Push(nodeQueueItem[T, U]{
 			Node:      root,
 			TreeIndex: i,
-		}, float64(math.MaxFloat32))
+		}, -float64(math.MaxFloat32))
 	}
 
-	for uint(itemQueue.Len()) < bsp.MaxCandidates && 0 < nodeQueue.Len() {
+	nTotalCandidates := uint(0)
+	for nTotalCandidates < bsp.MaxCandidates && 0 < nodeQueue.Len() {
 		nodeWithTreeIndex, err := nodeQueue.Pop()
 		if err != nil {
 			return nil, err
@@ -145,8 +145,8 @@ func (bsp *bspTreeIndex[T, U, C]) Search(query []T, n uint, r float64) ([]Candid
 		treeIndex := nodeWithTreeIndex.TreeIndex
 		indice := bsp.Indice[treeIndex]
 
-		if item, err := itemQueue.PeekWithPriority(int(n - 1)); err == nil {
-			r = item.Priority
+		if worstPriority := itemQueue.WorstPriority(); !math.IsInf(worstPriority, 1) {
+			r = worstPriority
 		}
 
 		if node.Left == nil && node.Right == nil {
@@ -154,22 +154,23 @@ func (bsp *bspTreeIndex[T, U, C]) Search(query []T, n uint, r float64) ([]Candid
 				distance := number.CalcSqDistance(query, bsp.Pool[indice[i]].Feature)
 				if distance < r {
 					itemQueue.Push(&bsp.Pool[indice[i]].Item, float64(distance))
+					nTotalCandidates++
 				}
 			}
 		} else {
 			distanceToCutPlane := node.CutPlane.Distance(query)
 			if -r < distanceToCutPlane {
-				nodeQueue.Push(nodeQueueItem[T, U]{Node: node.Right, TreeIndex: treeIndex}, distanceToCutPlane)
+				nodeQueue.Push(nodeQueueItem[T, U]{Node: node.Right, TreeIndex: treeIndex}, -distanceToCutPlane)
 			}
 			if distanceToCutPlane < r {
-				nodeQueue.Push(nodeQueueItem[T, U]{Node: node.Left, TreeIndex: treeIndex}, -distanceToCutPlane)
+				nodeQueue.Push(nodeQueueItem[T, U]{Node: node.Left, TreeIndex: treeIndex}, distanceToCutPlane)
 			}
 		}
 	}
 
 	items := make([]Candidate[U], number.Min(n, uint(itemQueue.Len())))
 	for i := range items {
-		item, err := itemQueue.PopWithPriority()
+		item, err := itemQueue.Pop()
 		if err != nil {
 			return nil, err
 		}

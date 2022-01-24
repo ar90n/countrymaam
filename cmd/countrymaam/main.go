@@ -78,6 +78,7 @@ func trainAction(c *cli.Context) error {
 		return err
 	}
 
+	log.Println("reading data...")
 	r := bufio.NewReader(os.Stdin)
 Loop:
 	for i := 0; ; i++ {
@@ -90,10 +91,13 @@ Loop:
 		}
 		index.Add(feature, i)
 	}
+
+	log.Println("building index...")
 	if err := index.Build(); err != nil {
 		return err
 	}
 
+	log.Println("saving index...")
 	file, err := os.Create(outputName)
 	if err != nil {
 		return err

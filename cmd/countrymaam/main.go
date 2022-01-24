@@ -90,14 +90,18 @@ Loop:
 		}
 		index.Add(feature, i)
 	}
-	index.Build()
+	if err := index.Build(); err != nil {
+		return err
+	}
 
 	file, err := os.Create(outputName)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
-	err = index.Save(file)
+	if err := index.Save(file); err != nil {
+		return err
+	}
 
 	return nil
 }

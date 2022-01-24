@@ -91,11 +91,13 @@ Loop:
 		}
 		index.Add(feature, i)
 	}
+	log.Println("done")
 
 	log.Println("building index...")
 	if err := index.Build(); err != nil {
 		return err
 	}
+	log.Println("done")
 
 	log.Println("saving index...")
 	file, err := os.Create(outputName)
@@ -106,6 +108,7 @@ Loop:
 	if err := index.Save(file); err != nil {
 		return err
 	}
+	log.Println("done")
 
 	return nil
 }

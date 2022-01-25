@@ -20,14 +20,12 @@ func (fi *flatIndex[T, U]) Add(feature []T, item U) {
 	fi.Items = append(fi.Items, item)
 }
 
-func (fi flatIndex[T, U]) Search(query []T, n uint, r float64) ([]Candidate[U], error) {
+func (fi flatIndex[T, U]) Search(query []T, n uint) ([]Candidate[U], error) {
 	candidates := collection.NewPriorityQueue[U](int(n))
 
 	for i, feature := range fi.Features {
-		distance := number.CalcSqDistance(query, feature)
-		if distance < r {
-			candidates.Push(fi.Items[i], distance)
-		}
+		distance := number.CalcSqDist(query, feature)
+		candidates.Push(fi.Items[i], distance)
 	}
 
 	items := make([]Candidate[U], number.Min(n, uint(candidates.Len())))

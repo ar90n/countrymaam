@@ -33,6 +33,8 @@ type bspTreeIndex[T number.Number, U any, C CutPlane[T, U]] struct {
 	MaxCandidates uint
 }
 
+var _ = (*bspTreeIndex[float32, int, kdCutPlane[float32, int]])(nil)
+
 func (bsp *bspTreeIndex[T, U, C]) Add(feature []T, item U) {
 	bsp.Pool = append(bsp.Pool, treeElement[T, U]{
 		Item:    item,
@@ -114,7 +116,7 @@ type nodeQueueItem[T number.Number, U any] struct {
 	TreeIndex int
 }
 
-func (bsp *bspTreeIndex[T, U, C]) Search(query []T, n uint, r float64) ([]Candidate[U], error) {
+func (bsp *bspTreeIndex[T, U, C]) Search(query []T, n uint) ([]Candidate[U], error) {
 	if !bsp.HasIndex() {
 		bsp.Build()
 	}
@@ -134,37 +136,32 @@ func (bsp *bspTreeIndex[T, U, C]) Search(query []T, n uint, r float64) ([]Candid
 
 	nTotalCandidates := uint(0)
 	for nTotalCandidates < bsp.MaxCandidates && 0 < nodeQueue.Len() {
-		nodeWithTreeIndex, err := nodeQueue.Pop()
+		nodeWithPriority, err := nodeQueue.PopWithPriority()
 		if err != nil {
 			return nil, err
 		}
-		node := nodeWithTreeIndex.Node
+
+		worstPriority := nodeWithPriority.Priority
+		treeIndex := nodeWithPriority.Item.TreeIndex
+		node := nodeWithPriority.Item.Node
 		if node == nil {
 			continue
 		}
-		treeIndex := nodeWithTreeIndex.TreeIndex
 		indice := bsp.Indice[treeIndex]
-
-		if worstPriority := itemQueue.WorstPriority(); !math.IsInf(worstPriority, 1) {
-			r = worstPriority
-		}
 
 		if node.Left == nil && node.Right == nil {
 			for i := node.Begin; i < node.End; i++ {
-				distance := number.CalcSqDistance(query, bsp.Pool[indice[i]].Feature)
-				if distance < r {
-					itemQueue.Push(&bsp.Pool[indice[i]].Item, float64(distance))
-					nTotalCandidates++
-				}
+				distance := number.CalcSqDist(query, bsp.Pool[indice[i]].Feature)
+				itemQueue.Push(&bsp.Pool[indice[i]].Item, float64(distance))
+				nTotalCandidates++
 			}
 		} else {
-			distanceToCutPlane := node.CutPlane.Distance(query)
-			if -r < distanceToCutPlane {
-				nodeQueue.Push(nodeQueueItem[T, U]{Node: node.Right, TreeIndex: treeIndex}, -distanceToCutPlane)
-			}
-			if distanceToCutPlane < r {
-				nodeQueue.Push(nodeQueueItem[T, U]{Node: node.Left, TreeIndex: treeIndex}, distanceToCutPlane)
-			}
+			sqDistanceToCutPlane := node.CutPlane.Distance(query)
+			rightPriority := number.Max(-sqDistanceToCutPlane, worstPriority)
+			nodeQueue.Push(nodeQueueItem[T, U]{Node: node.Right, TreeIndex: treeIndex}, rightPriority)
+
+			leftPriority := number.Max(sqDistanceToCutPlane, worstPriority)
+			nodeQueue.Push(nodeQueueItem[T, U]{Node: node.Left, TreeIndex: treeIndex}, leftPriority)
 		}
 	}
 

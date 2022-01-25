@@ -68,7 +68,7 @@ func TestSearchKNNVectors(t *testing.T) {
 		},
 		{
 			"RandomizedRpTreeIndex-lefSize:1-5",
-			NewRandomizedRpTreeIndex[float32, int](datasetDim, 1, 5, 32),
+			NewRandomizedRpTreeIndex[float32, int](datasetDim, 1, 5, 64),
 		},
 	} {
 		t.Run(alg.Name, func(t *testing.T) {
@@ -82,36 +82,31 @@ func TestSearchKNNVectors(t *testing.T) {
 				{
 					Query:    [8]float32{-0.621, -0.586, -0.468, 0.494, 0.485, 0.407, 1.273, -1.1},
 					K:        1,
-					Radius:   0.5,
 					Expected: []int{5},
 				},
 				{
 					Query:    [8]float32{-0.83059702, -1.01070708, -0.15162675, -1.32760066, -1.19706362, -0.21952724, -0.27582108, 0.93780233},
 					K:        2,
-					Radius:   10,
 					Expected: []int{0, 9},
 				},
 				{
 					Query:    [8]float32{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
 					K:        5,
-					Radius:   15,
 					Expected: []int{2, 4, 5, 7, 9},
 				},
 				{
 					Query:    [8]float32{-0.621, -0.586, -0.468, 0.494, 0.485, 0.407, 1.273, -1.1},
 					K:        10,
-					Radius:   1e-8,
-					Expected: []int{5},
+					Expected: []int{5, 7, 2, 8, 4, 1, 6, 0, 9, 3},
 				},
 				{
 					Query:    [8]float32{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
 					K:        5,
-					Radius:   0.5,
-					Expected: []int{},
+					Expected: []int{2, 4, 5, 7, 9},
 				},
 			} {
 				t.Run(fmt.Sprint(c), func(t *testing.T) {
-					results, _ := alg.Index.Search(tc.Query[:], tc.K, tc.Radius)
+					results, _ := alg.Index.Search(tc.Query[:], tc.K)
 					if len(results) != len(tc.Expected) {
 						t.Errorf("Expected 1 result, got %d", len(results))
 					}
@@ -151,11 +146,11 @@ func TestRebuildIndex(t *testing.T) {
 		},
 		{
 			"KDTreeIndex",
-			NewKdTreeIndex[float32, int](datasetDim, 1, 32),
+			NewKdTreeIndex[float32, int](datasetDim, 1, 64),
 		},
 		{
 			"RandomizedKDTreeIndex",
-			NewRandomizedKdTreeIndex[float32, int](datasetDim, 1, 5, 32),
+			NewRandomizedKdTreeIndex[float32, int](datasetDim, 1, 5, 64),
 		},
 	} {
 		t.Run(alg.Name, func(t *testing.T) {
@@ -178,24 +173,21 @@ func TestRebuildIndex(t *testing.T) {
 				{
 					Query:    [8]float32{-0.621, -0.586, -0.468, 0.494, 0.485, 0.407, 1.273, -1.1},
 					K:        1,
-					Radius:   0.5,
 					Expected: []int{5},
 				},
 				{
 					Query:    [8]float32{-0.83059702, -1.01070708, -0.15162675, -1.32760066, -1.19706362, -0.21952724, -0.27582108, 0.93780233},
 					K:        2,
-					Radius:   10,
 					Expected: []int{0, 9},
 				},
 				{
 					Query:    [8]float32{-0.621, -0.586, -0.468, 0.494, 0.485, 0.407, 1.273, -1.1},
 					K:        10,
-					Radius:   1e-8,
-					Expected: []int{5},
+					Expected: []int{5, 7, 2, 8, 4, 1, 6, 0, 9, 3},
 				},
 			} {
 				t.Run(fmt.Sprint(c), func(t *testing.T) {
-					results, _ := alg.Index.Search(tc.Query[:], tc.K, tc.Radius)
+					results, _ := alg.Index.Search(tc.Query[:], tc.K)
 					if len(results) != len(tc.Expected) {
 						t.Errorf("Expected 1 result, got %d", len(results))
 					}

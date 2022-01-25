@@ -23,10 +23,10 @@ def main():
     leaf_size = 5
     max_candidates = 32
     tree_num = 4
-    output_name = "index.bin"
+    output_name = "/tmp/index.bin"
     
     p = subprocess.Popen([
-        "./main",
+        "countrymaam",
         "train",
         "--dim", str(len(features[0])),
         "--index", index_name,

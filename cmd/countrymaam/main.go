@@ -139,10 +139,14 @@ Loop:
 			return err
 		}
 
-		binary.Write(os.Stdout, binary.LittleEndian, uint32(len(neighbors)))
+		var wtr = bufio.NewWriter(os.Stdout)
+		//fmt.Fprintln(os.Stderr, uint32(len(neighbors)))
+		binary.Write(wtr, binary.LittleEndian, uint32(len(neighbors)))
 		for _, n := range neighbors {
-			binary.Write(os.Stdout, binary.LittleEndian, uint32(n.Item))
+			//fmt.Fprintln(os.Stderr, uint32(n.Item))
+			binary.Write(wtr, binary.LittleEndian, uint32(n.Item))
 		}
+		wtr.Flush()
 	}
 
 	return nil

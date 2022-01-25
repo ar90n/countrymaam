@@ -10,7 +10,7 @@ import (
 
 type Index[T number.Number, U any] interface {
 	Add(feature []T, item U)
-	Search(feature []T, n uint, r float64) ([]Candidate[U], error)
+	Search(feature []T, n uint) ([]Candidate[U], error)
 	Build() error
 	HasIndex() bool
 	Save(reader io.Writer) error
@@ -71,7 +71,7 @@ func NewKdTreeIndex[T number.Number, U any](dim uint, leafSize uint, maxCandidat
 	gob.Register(kdCutPlane[T, U]{})
 	return &bspTreeIndex[T, U, kdCutPlane[T, U]]{
 		Dim:           dim,
-		Pool:          make([]treeElement[T, U], 0),
+		Pool:          make([]treeElement[T, U], 0, 4096),
 		Roots:         make([]*treeNode[T, U], 1),
 		LeafSize:      leafSize,
 		MaxCandidates: maxCandidates,
@@ -136,7 +136,7 @@ func NewRandomizedRpTreeIndex[T number.Number, U any](dim uint, leafSize uint, n
 	gob.Register(rpCutPlane[T, U]{})
 	return &bspTreeIndex[T, U, rpCutPlane[T, U]]{
 		Dim:           dim,
-		Pool:          make([]treeElement[T, U], 0),
+		Pool:          make([]treeElement[T, U], 0, 4096),
 		Roots:         make([]*treeNode[T, U], nTrees),
 		LeafSize:      leafSize,
 		MaxCandidates: maxCandidates,

@@ -25,7 +25,12 @@ func (cp kdCutPlane[T, U]) Evaluate(feature []T) bool {
 }
 
 func (cp kdCutPlane[T, U]) Distance(feature []T) float64 {
-	return float64(feature[cp.Axis] - cp.Value)
+	diff := float64(feature[cp.Axis] - cp.Value)
+	sqDist := diff * diff
+	if diff < 0.0 {
+		sqDist = -sqDist
+	}
+	return sqDist
 }
 
 func (cp kdCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int) (CutPlane[T, U], error) {
@@ -67,7 +72,12 @@ func (cp randomizedKdCutPlane[T, U]) Evaluate(feature []T) bool {
 }
 
 func (cp randomizedKdCutPlane[T, U]) Distance(feature []T) float64 {
-	return float64(feature[cp.Axis] - cp.Value)
+	diff := float64(feature[cp.Axis] - cp.Value)
+	sqDist := diff * diff
+	if diff < 0.0 {
+		sqDist = -sqDist
+	}
+	return sqDist
 }
 
 func (cp randomizedKdCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int) (CutPlane[T, U], error) {
@@ -78,7 +88,8 @@ func (cp randomizedKdCutPlane[T, U]) Construct(elements []treeElement[T, U], ind
 	dim := len(elements[0].Feature)
 	accs := make([]float64, dim)
 	sqAccs := make([]float64, dim)
-	for _, i := range indice {
+	nSamples := number.Min(uint(len(indice)), 100)
+	for _, i := range indice[:nSamples] {
 		element := elements[i]
 		for j, v := range element.Feature {
 			v := float64(v)
@@ -87,7 +98,7 @@ func (cp randomizedKdCutPlane[T, U]) Construct(elements []treeElement[T, U], ind
 		}
 	}
 
-	invN := 1.0 / float64(len(indice))
+	invN := 1.0 / float64(nSamples)
 	queue := collection.PriorityQueue[*kdCutPlane[T, U]]{}
 	for i := range accs {
 		mean := accs[i] * invN
@@ -119,11 +130,13 @@ func (cp rpCutPlane[T, U]) Evaluate(feature []T) bool {
 }
 
 func (cp rpCutPlane[T, U]) Distance(feature []T) float64 {
-	dot := cp.A
-	for i := range feature {
-		dot += float64(feature[i]) * float64(cp.NormalVector[i])
+	dot := cp.A + number.CalcDot(feature, cp.NormalVector)
+	sqDist := dot * dot
+	if dot < 0.0 {
+		sqDist = -sqDist
 	}
-	return dot
+
+	return sqDist
 }
 
 func (cp rpCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int) (CutPlane[T, U], error) {
@@ -137,7 +150,7 @@ func (cp rpCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int)
 		rhsIndex++
 	}
 
-	const maxIter = 200
+	const maxIter = 32
 	dim := len(elements[indice[lhsIndex]].Feature)
 	lhsCenter := make([]float64, dim)
 	rhsCenter := make([]float64, dim)
@@ -147,27 +160,24 @@ func (cp rpCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int)
 		lhsCenter[i] = float64(elements[indice[lhsIndex]].Feature[i])
 		rhsCenter[i] = float64(elements[indice[rhsIndex]].Feature[i])
 	}
+	nSamples := number.Min(uint(len(indice)), 32)
 	for i := 0; i < maxIter; i++ {
-		for _, k := range indice {
-			element := elements[k]
-			lhsSqDist := 0.0
-			rhsSqDist := 0.0
-			feature := element.Feature
-			for j := range feature {
-				lhsDiff := lhsCenter[j] - float64(feature[j])
-				lhsSqDist += lhsDiff * lhsDiff
-				rhsDiff := rhsCenter[j] - float64(feature[j])
-				rhsSqDist += rhsDiff * rhsDiff
-			}
+		rand.Shuffle(len(indice), func(i, j int) { indice[i], indice[j] = indice[j], indice[i] })
+		for _, k := range indice[:nSamples] {
+			feature := elements[k].Feature
+			lhsSqDist := number.CalcSqDist(feature, lhsCenter)
+			rhsSqDist := number.CalcSqDist(feature, rhsCenter)
 
 			if lhsSqDist < rhsSqDist {
+				invCountPlusOone := 1.0 / float64(lhsCount+1)
 				for j, v := range feature {
-					lhsCenter[j] = (lhsCenter[j]*float64(lhsCount) + float64(v)) / float64(lhsCount+1)
+					lhsCenter[j] = (lhsCenter[j]*float64(lhsCount) + float64(v)) * invCountPlusOone
 				}
 				lhsCount++
 			} else {
+				invCountPlusOone := 1.0 / float64(rhsCount+1)
 				for j, v := range feature {
-					rhsCenter[j] = (rhsCenter[j]*float64(rhsCount) + float64(v)) / float64(rhsCount+1)
+					rhsCenter[j] = (rhsCenter[j]*float64(rhsCount) + float64(v)) * invCountPlusOone
 				}
 				rhsCount++
 			}
@@ -181,9 +191,9 @@ func (cp rpCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int)
 		normalVector[i] = diff
 		accSqDiff += diff * diff
 	}
-	norm := math.Sqrt(accSqDiff) + 1e-10
+	invNorm := 1.0 / (math.Sqrt(accSqDiff) + 1e-10)
 	for i := 0; i < dim; i++ {
-		normalVector[i] /= norm
+		normalVector[i] *= invNorm
 	}
 
 	a := 0.0

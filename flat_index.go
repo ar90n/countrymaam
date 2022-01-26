@@ -20,7 +20,7 @@ func (fi *flatIndex[T, U]) Add(feature []T, item U) {
 	fi.Items = append(fi.Items, item)
 }
 
-func (fi flatIndex[T, U]) Search(query []T, n uint) ([]Candidate[U], error) {
+func (fi flatIndex[T, U]) Search(query []T, n uint, maxCandidates uint) ([]Candidate[U], error) {
 	candidates := collection.NewPriorityQueue[U](int(n))
 
 	for i, feature := range fi.Features {

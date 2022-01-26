@@ -12,18 +12,24 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-func createIndex(index string, nDim uint, leafSize uint, nTrees uint, maxCandidates uint) (countrymaam.Index[float64, int], error) {
+type Query struct {
+	Feature       []float64
+	Neighbors     uint
+	MaxCandidates uint
+}
+
+func createIndex(index string, nDim uint, leafSize uint, nTrees uint) (countrymaam.Index[float64, int], error) {
 	switch index {
 	case "flat":
 		return countrymaam.NewFlatIndex[float64, int](nDim), nil
 	case "kd-tree":
-		return countrymaam.NewKdTreeIndex[float64, int](nDim, leafSize, maxCandidates), nil
+		return countrymaam.NewKdTreeIndex[float64, int](nDim, leafSize), nil
 	case "rkd-tree":
-		return countrymaam.NewRandomizedKdTreeIndex[float64, int](nDim, leafSize, nTrees, maxCandidates), nil
+		return countrymaam.NewRandomizedKdTreeIndex[float64, int](nDim, leafSize, nTrees), nil
 	case "rp-tree":
-		return countrymaam.NewRpTreeIndex[float64, int](nDim, leafSize, maxCandidates), nil
+		return countrymaam.NewRpTreeIndex[float64, int](nDim, leafSize), nil
 	case "rrp-tree":
-		return countrymaam.NewRandomizedRpTreeIndex[float64, int](nDim, leafSize, nTrees, maxCandidates), nil
+		return countrymaam.NewRandomizedRpTreeIndex[float64, int](nDim, leafSize, nTrees), nil
 	default:
 		return nil, fmt.Errorf("unknown index name: %s", index)
 	}
@@ -66,14 +72,37 @@ func readFeature(r io.Reader, nDim uint) ([]float64, error) {
 	return feature, nil
 }
 
+func readQuery(r io.Reader, nDim uint) (Query, error) {
+	var maxCandidates int32
+	if err := binary.Read(r, binary.LittleEndian, &maxCandidates); err != nil {
+		return Query{}, err
+	}
+
+	var neighbors int32
+	if err := binary.Read(r, binary.LittleEndian, &neighbors); err != nil {
+		return Query{}, err
+	}
+
+	feature, err := readFeature(r, nDim)
+	if err != nil {
+		return Query{}, err
+	}
+
+	query := Query{
+		Feature:       feature,
+		Neighbors:     uint(neighbors),
+		MaxCandidates: uint(maxCandidates),
+	}
+	return query, nil
+}
+
 func trainAction(c *cli.Context) error {
 	nDim := c.Uint("dim")
 	indexName := c.String("index")
 	leafSize := c.Uint("leaf-size")
-	maxCandidates := c.Uint("max-candidates")
 	outputName := c.String("output")
 	nTrees := c.Uint("tree-num")
-	index, err := createIndex(indexName, nDim, leafSize, nTrees, maxCandidates)
+	index, err := createIndex(indexName, nDim, leafSize, nTrees)
 	if err != nil {
 		return err
 	}
@@ -115,8 +144,6 @@ Loop:
 
 func predictAction(c *cli.Context) error {
 	nDim := c.Uint("dim")
-	k := c.Uint("k")
-	radius := c.Float64("radius")
 	indexName := c.String("index")
 	inputName := c.String("input")
 	index, err := loadIndex(indexName, inputName)
@@ -127,23 +154,21 @@ func predictAction(c *cli.Context) error {
 	r := bufio.NewReader(os.Stdin)
 Loop:
 	for {
-		feature, err := readFeature(r, nDim)
+		query, err := readQuery(r, nDim)
 		if err == io.EOF {
 			break Loop
 		}
 		if err != nil {
 			return err
 		}
-		neighbors, err := index.Search(feature, k, radius)
+		neighbors, err := index.Search(query.Feature, query.Neighbors, query.MaxCandidates)
 		if err != nil {
 			return err
 		}
 
 		var wtr = bufio.NewWriter(os.Stdout)
-		//fmt.Fprintln(os.Stderr, uint32(len(neighbors)))
 		binary.Write(wtr, binary.LittleEndian, uint32(len(neighbors)))
 		for _, n := range neighbors {
-			//fmt.Fprintln(os.Stderr, uint32(n.Item))
 			binary.Write(wtr, binary.LittleEndian, uint32(n.Item))
 		}
 		wtr.Flush()
@@ -180,11 +205,6 @@ func main() {
 						Usage: "leaf size",
 					},
 					&cli.UintFlag{
-						Name:  "max-candidates",
-						Value: 32,
-						Usage: "max candidates",
-					},
-					&cli.UintFlag{
 						Name:  "tree-num",
 						Value: 8,
 						Usage: "number of trees",
@@ -216,16 +236,6 @@ func main() {
 						Name:  "input",
 						Value: "index.bin",
 						Usage: "index file",
-					},
-					&cli.Uint64Flag{
-						Name:  "k",
-						Value: 1,
-						Usage: "K",
-					},
-					&cli.Float64Flag{
-						Name:  "radius",
-						Value: 1.0,
-						Usage: "radius",
 					},
 				},
 			},

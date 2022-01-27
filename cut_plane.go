@@ -17,7 +17,7 @@ type CutPlane[T number.Number, U any] interface {
 
 type kdCutPlane[T number.Number, U any] struct {
 	Axis  uint
-	Value T
+	Value float64
 }
 
 func (cp kdCutPlane[T, U]) Evaluate(feature []T) bool {
@@ -25,7 +25,7 @@ func (cp kdCutPlane[T, U]) Evaluate(feature []T) bool {
 }
 
 func (cp kdCutPlane[T, U]) Distance(feature []T) float64 {
-	diff := float64(feature[cp.Axis] - cp.Value)
+	diff := float64(feature[cp.Axis]) - cp.Value
 	sqDist := diff * diff
 	if diff < 0.0 {
 		sqDist = -sqDist
@@ -46,7 +46,7 @@ func (cp kdCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int)
 	maxRange := maxValues[0] - minValues[0]
 	cutPlane := kdCutPlane[T, U]{
 		Axis:  uint(0),
-		Value: (maxValues[0] + minValues[0]) / 2,
+		Value: float64(maxValues[0]+minValues[0]) / 2,
 	}
 	for i := uint(1); i < uint(len(minValues)); i++ {
 		diff := maxValues[i] - minValues[i]
@@ -54,7 +54,7 @@ func (cp kdCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int)
 			maxRange = diff
 			cutPlane = kdCutPlane[T, U]{
 				Axis:  i,
-				Value: (maxValues[i] + minValues[i]) / 2,
+				Value: float64(maxValues[i]+minValues[i]) / 2,
 			}
 		}
 	}
@@ -107,7 +107,7 @@ func (cp randomizedKdCutPlane[T, U]) Construct(elements []treeElement[T, U], ind
 
 		cutPlane := &kdCutPlane[T, U]{
 			Axis:  uint(i),
-			Value: number.Cast[float64, T](mean),
+			Value: mean,
 		}
 		queue.Push(cutPlane, -variance)
 	}

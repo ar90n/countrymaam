@@ -1,7 +1,11 @@
 package collection
 
 func Partition[T any](buf []T, predicate func(T) bool) uint {
-	i, j := uint(0), uint(len(buf)-1)
+	if len(buf) == 0 {
+		return 0
+	}
+
+	i, j := 0, len(buf)-1
 	for i <= j {
 		for i <= j && !predicate(buf[i]) {
 			i++
@@ -13,5 +17,5 @@ func Partition[T any](buf []T, predicate func(T) bool) uint {
 			buf[i], buf[j] = buf[j], buf[i]
 		}
 	}
-	return i
+	return uint(i)
 }

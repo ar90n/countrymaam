@@ -2,6 +2,10 @@ import struct
 import subprocess
 import sys
 import os
+import string
+import random
+from tempfile import TemporaryDirectory
+from pathlib import Path
 
 def main():
     features = [
@@ -23,39 +27,39 @@ def main():
     leaf_size = 5
     max_candidates = 32
     tree_num = 4
-    output_name = "/tmp/index.bin"
-    
-    p = subprocess.Popen([
-        "countrymaam",
-        "train",
-        "--dim", str(len(features[0])),
-        "--index", index_name,
-        "--leaf-size", str(leaf_size),
-        "--max-candidates", str(max_candidates),
-        "--tree-num", str(tree_num),
-        "--output", output_name
-    ], stdin=subprocess.PIPE)
-    for v in sum(features, []):
-        p.stdin.write(struct.pack("=d", float(v)))
-    p.stdin.flush()
-    p.stdin.close()
+    with TemporaryDirectory() as tmpdir:
+        output_name = str(Path(tmpdir) / "index.bin")
+        print(output_name)
+        p = subprocess.Popen([
+            "./countrymaam",
+            "train",
+            "--dim", str(len(features[0])),
+            "--index", index_name,
+            "--leaf-size", str(leaf_size),
+            "--tree-num", str(tree_num),
+            "--output", output_name
+        ], stdin=subprocess.PIPE)
+        for v in sum(features, []):
+            p.stdin.write(struct.pack("=d", float(v)))
+        p.stdin.flush()
+        p.stdin.close()
 
-    p = subprocess.Popen([
-        "./main",
-        "predict",
-        "--dim", str(len(features[0])),
-        "--index", index_name,
-        "--input", output_name,
-        "--k", "3",
-        "--radius", "10.0"
-    ], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    for v in sum(features[2:3], []):
-        p.stdin.write(struct.pack("=d", float(v)))
-    p.stdin.flush()
-    n = struct.unpack("=i", p.stdout.read(4))[0]
-    for i in range(n):
-        v = struct.unpack("=i", p.stdout.read(4))[0]
-        print(v)
+        p = subprocess.Popen([
+            "./countrymaam",
+            "predict",
+            "--dim", str(len(features[0])),
+            "--index", index_name,
+            "--input", output_name,
+        ], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        p.stdin.write(struct.pack(f"=i", max_candidates))
+        p.stdin.write(struct.pack(f"=i", 3))
+        for v in sum(features[2:3], []):
+            p.stdin.write(struct.pack("=d", float(v)))
+        p.stdin.flush()
+        n = struct.unpack("=i", p.stdout.read(4))[0]
+        for i in range(n):
+            v = struct.unpack("=i", p.stdout.read(4))[0]
+            print(v)
 
 
 if __name__ == '__main__':

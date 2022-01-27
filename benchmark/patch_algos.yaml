@@ -1,12 +1,12 @@
 diff --git a/algos.yaml b/algos.yaml
-index 7c1ebe6..efb4348 100644
+index 7c1ebe6..f170633 100644
 --- a/algos.yaml
 +++ b/algos.yaml
-@@ -391,6 +391,22 @@ float:
+@@ -391,6 +391,28 @@ float:
            query-args: [[0.6, 0.8, 0.9, 1.0, 1.02, 1.05, 1.1, 1.2]]
  
    euclidean:
-+    countrymaam:
++    countrymaam-kd:
 +      docker-tag: ann-benchmarks-countrymaam
 +      module: ann_benchmarks.algorithms.countrymaam
 +      constructor: Countrymaam
@@ -14,12 +14,18 @@ index 7c1ebe6..efb4348 100644
 +      run-groups:
 +        kd:
 +          arg-groups:
-+            - {"index": ["rkd-tree"], "n_trees": [8, 16, 32, 64, 128, 256],
++            - {"index": ["rkd-tree"], "n_trees": [8, 16, 32, 64],
 +               "leaf_size":[8, 16, 32, 64]}
 +          query-args: [[16, 32, 64, 128, 256, 512, 1024, 2048]]
++    countrymaam-rp:
++      docker-tag: ann-benchmarks-countrymaam
++      module: ann_benchmarks.algorithms.countrymaam
++      constructor: Countrymaam
++      base-args: ["@metric"]
++      run-groups:
 +        rp:
 +          arg-groups:
-+            - {"index": ["rrp-tree"], "n_trees": [8, 16, 32, 64, 128, 256],
++            - {"index": ["rrp-tree"], "n_trees": [8, 16, 32, 64],
 +               "leaf_size":[8, 16, 32, 64]}
 +          query-args: [[16, 32, 64, 128, 256, 512, 1024, 2048]]
      vamana(diskann):

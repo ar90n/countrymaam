@@ -1,30 +1,38 @@
 .ONESHELL:
-POETRY=docker run --rm -it --privileged --gpus all -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro -v /etc/subuid:/etc/subuid:ro -v /var/run/docker.sock:/var/run/docker.sock -v /usr/bin/docker:/usr/bin/docker --network=host -e HOME=/home/argon -u=501:6809 -v /home:/home -v /opt:/opt -v /tmp:/tmp -v /mnt:/mnt -w $$(pwd) --entrypoint poetry ar90n/python:latest
+POETRY=poetry
+PARALLELISM=1
 
-.PHONY: setup benchmark flann annoy
+.PHONY: setup benchmark flann annoy countrymaam-kd countrymaam-rp test
 
 setup:
-	cd  ann-benchmarks
+	cd ann-benchmarks
+	cp ../countrymaam.py ./ann_benchmarks/algorithms
+	cp ../Docker.countrymaam ./install
+	patch -N < ../patch_algos.yaml
 	$(POETRY) init --python '>= 3.8, < 3.11' -n
 	$(POETRY) add $$(cat requirements.txt | sed 's/=.*//g')
 
-$(wildcard results/fashion-mnist-784-euclidean/10/annoy/*.hdf5): setup
-	cd  ann-benchmarks
+annoy: setup
+	cd ann-benchmarks
 	$(POETRY) run python install.py --algorithm annoy
-	$(POETRY) run python run.py --algorithm annoy --dataset fashion-mnist-784-euclidean
+	$(POETRY) run python run.py --algorithm annoy --dataset fashion-mnist-784-euclidean --parallelism $(PARALLELISM); true
 
-annoy: $(wildcard results/fashion-mnist-784-euclidean/10/annoy/*.hdf5)
-
-
-$(wildcard results/fashion-mnist-784-euclidean/10/flann/*.hdf5): setup
-	cd  ann-benchmarks
+flann: setup
+	cd ann-benchmarks
 	$(POETRY) run python install.py --algorithm flann
-	$(POETRY) run python run.py --algorithm flann --dataset fashion-mnist-784-euclidean
+	$(POETRY) run python run.py --algorithm flann --dataset fashion-mnist-784-euclidean --parallelism $(PARALLELISM); true
 
-flann: $(wildcard results/fashion-mnist-784-euclidean/10/flann/*.hdf5)
+countrymaam-kd: setup
+	cd ann-benchmarks
+	$(POETRY) run python install.py --algorithm countrymaam-kd
+	$(POETRY) run python run.py --algorithm countrymaam-kd --dataset fashion-mnist-784-euclidean --parallelism $(PARALLELISM); true
 
+countrymaam-rp: setup
+	cd ann-benchmarks
+	$(POETRY) run python install.py --algorithm countrymaam-rp
+	$(POETRY) run python run.py --algorithm countrymaam-rp --dataset fashion-mnist-784-euclidean --parallelism $(PARALLELISM); true
 
-benchmark: flann  annoy
-	cd  ann-benchmarks
+benchmark: annoy flann countrymaam-kd countrymaam-rp
+	cd ann-benchmarks
 	sudo chmod -R 777 ./results
-	$(POETRY) run python plot.py --dataset fashion-mnist-784-euclidean
+	$(POETRY) run python plot.py --dataset fashion-mnist-784-euclidean -Y log -X a4

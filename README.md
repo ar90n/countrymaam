@@ -89,14 +89,14 @@ func main() {
 }
 ```
 ### Result
-```
+```bash
+$ go run ./example/kdtree.go 
 0: 1023, 0.000000
 1: 974, 6.000000
 2: 992, 7.000000
 3: 1001, 9.000000
 4: 975, 9.000000
 ```
-
 
 ## Benchmark
 
@@ -109,6 +109,7 @@ ann-benchmarks/results/fashion-mnist-784-euclidean.png
 ```
 
 ### Result
+![benchmark result](https://github.com/ar90n/countrymaam/blob/assets/images/fashion-mnist-784-euclidean.png)
 
 ## See also
 * [flann](https://github.com/flann-lib/flann)

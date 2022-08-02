@@ -1,6 +1,6 @@
 module github.com/ar90n/countrymaam
 
-go 1.18
+go 1.19
 
 require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.0-20190314233015-f79a8a8ca69d // indirect

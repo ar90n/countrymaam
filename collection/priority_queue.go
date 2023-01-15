@@ -95,3 +95,14 @@ func (pq *PriorityQueue[T]) Peek(n int) (ret T, _ error) {
 func (pq *PriorityQueue[T]) Len() int {
 	return pq.priorityQueue.Len()
 }
+
+func (pq *PriorityQueue[T]) PopWithPriority2() <-chan withPriority[T] {
+	ch := make(chan withPriority[T])
+	go func() {
+		defer close(ch)
+		for pq.priorityQueue.Len() > 0 {
+			ch <- *heap.Pop(&pq.priorityQueue).(*withPriority[T])
+		}
+	}()
+	return ch
+}

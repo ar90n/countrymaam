@@ -1,6 +1,7 @@
 package countrymaam
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -8,15 +9,15 @@ import (
 	"math/rand"
 
 	"github.com/ar90n/countrymaam/collection"
-	"github.com/ar90n/countrymaam/number"
+	"github.com/ar90n/countrymaam/linalg"
 )
 
-type treeElement[T number.Number, U any] struct {
+type treeElement[T linalg.Number, U any] struct {
 	Feature []T
 	Item    U
 }
 
-type treeNode[T number.Number, U any] struct {
+type treeNode[T linalg.Number, U any] struct {
 	CutPlane CutPlane[T, U]
 	Begin    uint
 	End      uint
@@ -24,12 +25,13 @@ type treeNode[T number.Number, U any] struct {
 	Right    *treeNode[T, U]
 }
 
-type bspTreeIndex[T number.Number, U any, C CutPlane[T, U]] struct {
+type bspTreeIndex[T linalg.Number, U any, C CutPlane[T, U]] struct {
 	Dim      uint
 	Pool     []treeElement[T, U]
 	Indice   [][]int
 	Roots    []*treeNode[T, U]
 	LeafSize uint
+	env      linalg.Env[T]
 }
 
 var _ = (*bspTreeIndex[float32, int, kdCutPlane[float32, int]])(nil)
@@ -63,14 +65,14 @@ func (bsp *bspTreeIndex[T, U, C]) Build() error {
 			}, nil
 		}
 
-		cutPlane, err := (*new(C)).Construct(bsp.Pool, indice)
+		cutPlane, err := (*new(C)).Construct(bsp.Pool, indice, bsp.env)
 		if err != nil {
 			return nil, err
 		}
 
 		mid := collection.Partition(indice,
 			func(i int) bool {
-				return cutPlane.Evaluate(bsp.Pool[i].Feature)
+				return cutPlane.Evaluate(bsp.Pool[i].Feature, bsp.env)
 			})
 		left, err := buildTree(indice[:mid], begin)
 		if err != nil {
@@ -110,7 +112,7 @@ func (bsp *bspTreeIndex[T, U, C]) Build() error {
 	return nil
 }
 
-type nodeQueueItem[T number.Number, U any] struct {
+type nodeQueueItem[T linalg.Number, U any] struct {
 	Node      *treeNode[T, U]
 	TreeIndex int
 }
@@ -150,21 +152,21 @@ func (bsp *bspTreeIndex[T, U, C]) Search(query []T, n uint, maxCandidates uint) 
 
 		if node.Left == nil && node.Right == nil {
 			for i := node.Begin; i < node.End; i++ {
-				distance := number.CalcSqDist(query, bsp.Pool[indice[i]].Feature)
+				distance := bsp.env.SqL2(query, bsp.Pool[indice[i]].Feature)
 				itemQueue.Push(&bsp.Pool[indice[i]].Item, float64(distance))
 				nTotalCandidates++
 			}
 		} else {
-			sqDistanceToCutPlane := node.CutPlane.Distance(query)
-			rightPriority := number.Max(-sqDistanceToCutPlane, worstPriority)
+			sqDistanceToCutPlane := node.CutPlane.Distance(query, bsp.env)
+			rightPriority := linalg.Max(-sqDistanceToCutPlane, worstPriority)
 			nodeQueue.Push(nodeQueueItem[T, U]{Node: node.Right, TreeIndex: treeIndex}, rightPriority)
 
-			leftPriority := number.Max(sqDistanceToCutPlane, worstPriority)
+			leftPriority := linalg.Max(sqDistanceToCutPlane, worstPriority)
 			nodeQueue.Push(nodeQueueItem[T, U]{Node: node.Left, TreeIndex: treeIndex}, leftPriority)
 		}
 	}
 
-	items := make([]Candidate[U], number.Min(n, uint(itemQueue.Len())))
+	items := make([]Candidate[U], linalg.Min(n, uint(itemQueue.Len())))
 	for i := range items {
 		item, err := itemQueue.Pop()
 		if err != nil {
@@ -176,6 +178,80 @@ func (bsp *bspTreeIndex[T, U, C]) Search(query []T, n uint, maxCandidates uint) 
 	}
 
 	return items, nil
+}
+
+func (bsp *bspTreeIndex[T, U, C]) Search2(ctx context.Context, query []T) <-chan Candidate[U] {
+	ch := make(chan Candidate[U])
+
+	go func() {
+		defer close(ch)
+
+		if !bsp.HasIndex() {
+			bsp.Build()
+		}
+
+		maxCandidates := 64
+		nodeQueue := collection.NewPriorityQueue[nodeQueueItem[T, U]](int(maxCandidates))
+		for i, root := range bsp.Roots {
+			if root == nil {
+				//return nil, fmt.Errorf("%d-th index is not created", i)
+				return
+			}
+
+			nodeQueue.Push(nodeQueueItem[T, U]{
+				Node:      root,
+				TreeIndex: i,
+			}, -float64(math.MaxFloat32))
+		}
+
+		ch2 := make(chan Candidate[U])
+		go func() {
+			defer close(ch2)
+			//for nodeWithPriority := range nodeQueue.PopWithPriority2() {
+			for 0 < nodeQueue.Len() {
+				nodeWithPriority, err := nodeQueue.PopWithPriority()
+				if err != nil {
+					return
+				}
+
+				worstPriority := nodeWithPriority.Priority
+				treeIndex := nodeWithPriority.Item.TreeIndex
+				node := nodeWithPriority.Item.Node
+				if node == nil {
+					continue
+				}
+				indice := bsp.Indice[treeIndex]
+
+				if node.Left == nil && node.Right == nil {
+					for i := node.Begin; i < node.End; i++ {
+						distance := bsp.env.SqL2(query, bsp.Pool[indice[i]].Feature)
+						ch2 <- Candidate[U]{
+							Item:     bsp.Pool[indice[i]].Item,
+							Distance: float64(distance),
+						}
+					}
+				} else {
+					sqDistanceToCutPlane := node.CutPlane.Distance(query, bsp.env)
+					rightPriority := linalg.Max(-sqDistanceToCutPlane, worstPriority)
+					nodeQueue.Push(nodeQueueItem[T, U]{Node: node.Right, TreeIndex: treeIndex}, rightPriority)
+
+					leftPriority := linalg.Max(sqDistanceToCutPlane, worstPriority)
+					nodeQueue.Push(nodeQueueItem[T, U]{Node: node.Left, TreeIndex: treeIndex}, leftPriority)
+				}
+			}
+		}()
+
+		for candidate := range ch2 {
+			select {
+			case <-ctx.Done():
+				return
+			case ch <- candidate:
+			}
+		}
+		return
+	}()
+
+	return ch
 }
 
 func (bsp bspTreeIndex[T, U, C]) HasIndex() bool {

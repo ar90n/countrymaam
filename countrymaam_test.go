@@ -352,10 +352,10 @@ func TestSearchKNNVectors2(t *testing.T) {
 			"RpTreeIndex-lefSize:5",
 			NewRpTreeIndex[float32, int](datasetDim, 5, env),
 		},
-		//{
-		//	"RandomizedRpTreeIndex-lefSize:1-5",
-		//	NewRandomizedRpTreeIndex[float32, int](datasetDim, 1, 5, env),
-		//},
+		{
+			"RandomizedRpTreeIndex-lefSize:1-5",
+			NewRandomizedRpTreeIndex[float32, int](datasetDim, 1, 5, env),
+		},
 	} {
 		t.Run(alg.Name, func(t *testing.T) {
 			for i, data := range dataset {
@@ -394,7 +394,12 @@ func TestSearchKNNVectors2(t *testing.T) {
 				t.Run(fmt.Sprint(c), func(t *testing.T) {
 					ctx := context.Background()
 					results := make([]Candidate[int], 0, 64)
+					founds := map[int]interface{}{}
 					for item := range alg.Index.Search2(ctx, tc.Query[:]) {
+						if _, ok := founds[item.Item]; ok {
+							continue
+						}
+						founds[item.Item] = struct{}{}
 						results = append(results, item)
 						if len(results) == 64 {
 							break

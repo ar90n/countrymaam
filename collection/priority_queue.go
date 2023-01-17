@@ -8,7 +8,7 @@ import (
 
 type withPriority[T any] struct {
 	Item     T
-	Priority float64
+	Priority float32
 }
 
 type priorityQueue[T any] []*withPriority[T]
@@ -47,7 +47,7 @@ func NewPriorityQueue[T any](capacity int) *PriorityQueue[T] {
 	}
 }
 
-func (pq *PriorityQueue[T]) Push(item T, priority float64) {
+func (pq *PriorityQueue[T]) Push(item T, priority float32) {
 	heap.Push(
 		&pq.priorityQueue,
 		&withPriority[T]{

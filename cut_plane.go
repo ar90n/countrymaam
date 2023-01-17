@@ -109,7 +109,7 @@ func (cp randomizedKdCutPlane[T, U]) Construct(elements []treeElement[T, U], ind
 			Axis:  uint(i),
 			Value: mean,
 		}
-		queue.Push(cutPlane, -variance)
+		queue.Push(cutPlane, -float32(variance))
 	}
 
 	nCandidates := linalg.Min(5, queue.Len())

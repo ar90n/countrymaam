@@ -28,7 +28,7 @@ func (fi flatIndex[T, U]) Search(query []T, n uint, maxCandidates uint) ([]Candi
 
 	for i, feature := range fi.Features {
 		distance := fi.env.SqL2(query, feature)
-		candidates.Push(fi.Items[i], float64(distance))
+		candidates.Push(fi.Items[i], distance)
 	}
 
 	items := make([]Candidate[U], linalg.Min(n, uint(candidates.Len())))
@@ -39,7 +39,7 @@ func (fi flatIndex[T, U]) Search(query []T, n uint, maxCandidates uint) ([]Candi
 		}
 
 		items[i].Item = item.Item
-		items[i].Distance = item.Priority
+		items[i].Distance = float64(item.Priority)
 	}
 
 	return items, nil
@@ -54,7 +54,7 @@ func (fi flatIndex[T, U]) Search2(ctx context.Context, query []T) <-chan Candida
 
 		for i, feature := range fi.Features {
 			distance := fi.env.SqL2(query, feature)
-			candidates.Push(fi.Items[i], float64(distance))
+			candidates.Push(fi.Items[i], distance)
 		}
 
 		for item := range candidates.PopWithPriority2() {
@@ -63,7 +63,7 @@ func (fi flatIndex[T, U]) Search2(ctx context.Context, query []T) <-chan Candida
 				return
 			case ch <- Candidate[U]{
 				Item:     item.Item,
-				Distance: item.Priority,
+				Distance: float64(item.Priority),
 			}:
 			}
 		}

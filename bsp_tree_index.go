@@ -132,7 +132,7 @@ func (bsp *bspTreeIndex[T, U, C]) Search(query []T, n uint, maxCandidates uint) 
 		nodeQueue.Push(nodeQueueItem[T, U]{
 			Node:      root,
 			TreeIndex: i,
-		}, -float64(math.MaxFloat32))
+		}, -math.MaxFloat32)
 	}
 
 	nTotalCandidates := uint(0)
@@ -153,15 +153,15 @@ func (bsp *bspTreeIndex[T, U, C]) Search(query []T, n uint, maxCandidates uint) 
 		if node.Left == nil && node.Right == nil {
 			for i := node.Begin; i < node.End; i++ {
 				distance := bsp.env.SqL2(query, bsp.Pool[indice[i]].Feature)
-				itemQueue.Push(&bsp.Pool[indice[i]].Item, float64(distance))
+				itemQueue.Push(&bsp.Pool[indice[i]].Item, distance)
 				nTotalCandidates++
 			}
 		} else {
 			sqDistanceToCutPlane := node.CutPlane.Distance(query, bsp.env)
-			rightPriority := linalg.Max(-sqDistanceToCutPlane, worstPriority)
+			rightPriority := linalg.Max(-float32(sqDistanceToCutPlane), worstPriority)
 			nodeQueue.Push(nodeQueueItem[T, U]{Node: node.Right, TreeIndex: treeIndex}, rightPriority)
 
-			leftPriority := linalg.Max(sqDistanceToCutPlane, worstPriority)
+			leftPriority := linalg.Max(float32(sqDistanceToCutPlane), worstPriority)
 			nodeQueue.Push(nodeQueueItem[T, U]{Node: node.Left, TreeIndex: treeIndex}, leftPriority)
 		}
 	}
@@ -174,7 +174,7 @@ func (bsp *bspTreeIndex[T, U, C]) Search(query []T, n uint, maxCandidates uint) 
 		}
 
 		items[i].Item = *item.Item
-		items[i].Distance = item.Priority
+		items[i].Distance = float64(item.Priority)
 	}
 
 	return items, nil
@@ -201,7 +201,7 @@ func (bsp *bspTreeIndex[T, U, C]) Search2(ctx context.Context, query []T) <-chan
 			nodeQueue.Push(nodeQueueItem[T, U]{
 				Node:      root,
 				TreeIndex: i,
-			}, -float64(math.MaxFloat32))
+			}, -math.MaxFloat32)
 		}
 
 		ch2 := make(chan Candidate[U])
@@ -232,10 +232,10 @@ func (bsp *bspTreeIndex[T, U, C]) Search2(ctx context.Context, query []T) <-chan
 					}
 				} else {
 					sqDistanceToCutPlane := node.CutPlane.Distance(query, bsp.env)
-					rightPriority := linalg.Max(-sqDistanceToCutPlane, worstPriority)
+					rightPriority := linalg.Max(-float32(sqDistanceToCutPlane), worstPriority)
 					nodeQueue.Push(nodeQueueItem[T, U]{Node: node.Right, TreeIndex: treeIndex}, rightPriority)
 
-					leftPriority := linalg.Max(sqDistanceToCutPlane, worstPriority)
+					leftPriority := linalg.Max(float32(sqDistanceToCutPlane), worstPriority)
 					nodeQueue.Push(nodeQueueItem[T, U]{Node: node.Left, TreeIndex: treeIndex}, leftPriority)
 				}
 			}

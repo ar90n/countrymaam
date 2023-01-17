@@ -14,7 +14,7 @@ type ItemQueue[T comparable] struct {
 func NewItemQueue[T comparable](maxSize int) *ItemQueue[T] {
 	items := make([]withPriority[T], maxSize+1)
 	for i := range items {
-		items[i].Priority = math.Inf(1)
+		items[i].Priority = math.MaxFloat32
 	}
 	return &ItemQueue[T]{
 		items:  items,
@@ -31,14 +31,14 @@ func nextIndex(i, n int) int {
 	return (i + 1) % n
 }
 
-func (iq *ItemQueue[T]) Push(item T, priority float64) {
+func (iq *ItemQueue[T]) Push(item T, priority float32) {
 	ind := prevIndex(iq.origin, len(iq.items))
 	iq.items[ind] = withPriority[T]{
 		Item:     item,
 		Priority: priority,
 	}
 	defer func(ind int) {
-		iq.items[ind].Priority = math.Inf(1)
+		iq.items[ind].Priority = math.MaxFloat32
 	}(ind)
 
 	if _, ok := iq.set[item]; ok {
@@ -55,18 +55,18 @@ func (iq *ItemQueue[T]) Push(item T, priority float64) {
 }
 
 func (iq *ItemQueue[T]) Pop() (item withPriority[T], _ error) {
-	if math.IsInf(iq.items[iq.origin].Priority, 1) {
+	if iq.items[iq.origin].Priority == math.MaxFloat32 {
 		return item, errors.New("queue is empty")
 	}
 
 	item = iq.items[iq.origin]
-	iq.items[iq.origin].Priority = math.Inf(1)
+	iq.items[iq.origin].Priority = math.MaxFloat32
 	delete(iq.set, item.Item)
 	iq.origin = nextIndex(iq.origin, len(iq.items))
 	return item, nil
 }
 
-func (iq ItemQueue[T]) WorstPriority() float64 {
+func (iq ItemQueue[T]) WorstPriority() float32 {
 	ind := prevIndex(iq.origin, len(iq.items))
 	ind = prevIndex(ind, len(iq.items))
 	return iq.items[ind].Priority
@@ -78,7 +78,7 @@ func (iq ItemQueue[T]) Len() int {
 
 	n := 0
 	for beg != end {
-		if math.IsInf(iq.items[beg].Priority, 1) {
+		if iq.items[beg].Priority == math.MaxFloat32 {
 			break
 		}
 		n++

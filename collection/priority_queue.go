@@ -2,16 +2,17 @@ package collection
 
 import (
 	"container/heap"
+	"context"
 	"errors"
 	"fmt"
 )
 
-type withPriority[T any] struct {
+type WithPriority[T any] struct {
 	Item     T
 	Priority float32
 }
 
-type priorityQueue[T any] []*withPriority[T]
+type priorityQueue[T any] []*WithPriority[T]
 
 func (pq priorityQueue[T]) Len() int { return len(pq) }
 
@@ -24,7 +25,7 @@ func (pq priorityQueue[T]) Swap(i, j int) {
 }
 
 func (pq *priorityQueue[T]) Push(x interface{}) {
-	item := x.(*withPriority[T])
+	item := x.(*WithPriority[T])
 	*pq = append(*pq, item)
 }
 
@@ -50,18 +51,18 @@ func NewPriorityQueue[T any](capacity int) *PriorityQueue[T] {
 func (pq *PriorityQueue[T]) Push(item T, priority float32) {
 	heap.Push(
 		&pq.priorityQueue,
-		&withPriority[T]{
+		&WithPriority[T]{
 			Item:     item,
 			Priority: priority,
 		},
 	)
 }
 
-func (pq *PriorityQueue[T]) PopWithPriority() (ret withPriority[T], _ error) {
+func (pq *PriorityQueue[T]) PopWithPriority() (ret WithPriority[T], _ error) {
 	if pq.priorityQueue.Len() == 0 {
 		return ret, errors.New("empty queue")
 	}
-	item := heap.Pop(&pq.priorityQueue).(*withPriority[T])
+	item := heap.Pop(&pq.priorityQueue).(*WithPriority[T])
 	return *item, nil
 }
 
@@ -74,7 +75,7 @@ func (pq *PriorityQueue[T]) Pop() (ret T, _ error) {
 	return item.Item, nil
 }
 
-func (pq *PriorityQueue[T]) PeekWithPriority(n int) (ret withPriority[T], _ error) {
+func (pq *PriorityQueue[T]) PeekWithPriority(n int) (ret WithPriority[T], _ error) {
 	if pq.priorityQueue.Len() <= n {
 		return ret, fmt.Errorf("index out of range: %d", n)
 	}
@@ -96,12 +97,20 @@ func (pq *PriorityQueue[T]) Len() int {
 	return pq.priorityQueue.Len()
 }
 
-func (pq *PriorityQueue[T]) PopWithPriority2() <-chan withPriority[T] {
-	ch := make(chan withPriority[T])
+func (pq *PriorityQueue[T]) PopWithPriority2(ctx context.Context) <-chan WithPriority[T] {
+	ch := make(chan WithPriority[T])
 	go func() {
 		defer close(ch)
-		for pq.priorityQueue.Len() > 0 {
-			ch <- *heap.Pop(&pq.priorityQueue).(*withPriority[T])
+		for {
+			nodeWithPriority, err := pq.PopWithPriority()
+			if err != nil {
+				return
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case ch <- nodeWithPriority:
+			}
 		}
 	}()
 	return ch

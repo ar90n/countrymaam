@@ -6,13 +6,13 @@ import (
 )
 
 type ItemQueue[T comparable] struct {
-	items  []withPriority[T]
+	items  []WithPriority[T]
 	set    map[T]interface{}
 	origin int
 }
 
 func NewItemQueue[T comparable](maxSize int) *ItemQueue[T] {
-	items := make([]withPriority[T], maxSize+1)
+	items := make([]WithPriority[T], maxSize+1)
 	for i := range items {
 		items[i].Priority = math.MaxFloat32
 	}
@@ -33,7 +33,7 @@ func nextIndex(i, n int) int {
 
 func (iq *ItemQueue[T]) Push(item T, priority float32) {
 	ind := prevIndex(iq.origin, len(iq.items))
-	iq.items[ind] = withPriority[T]{
+	iq.items[ind] = WithPriority[T]{
 		Item:     item,
 		Priority: priority,
 	}
@@ -54,7 +54,7 @@ func (iq *ItemQueue[T]) Push(item T, priority float32) {
 	}
 }
 
-func (iq *ItemQueue[T]) Pop() (item withPriority[T], _ error) {
+func (iq *ItemQueue[T]) Pop() (item WithPriority[T], _ error) {
 	if iq.items[iq.origin].Priority == math.MaxFloat32 {
 		return item, errors.New("queue is empty")
 	}

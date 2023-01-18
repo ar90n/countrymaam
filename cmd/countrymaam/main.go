@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -23,7 +24,7 @@ func createIndex(index string, nDim uint, leafSize uint, nTrees uint) (countryma
 	env := linalg.NewLinAlgF32(linalg.LinAlgOptions{})
 	switch index {
 	case "flat":
-		return countrymaam.NewFlatIndex[float32, int](nDim, env), nil
+		return countrymaam.NewFlatIndex[float32, int](nDim, 128, env), nil
 	case "kd-tree":
 		return countrymaam.NewKdTreeIndex[float32, int](nDim, leafSize, env), nil
 	case "rkd-tree":
@@ -104,6 +105,8 @@ func trainAction(c *cli.Context) error {
 	leafSize := c.Uint("leaf-size")
 	outputName := c.String("output")
 	nTrees := c.Uint("tree-num")
+
+	ctx := context.Background()
 	index, err := createIndex(indexName, nDim, leafSize, nTrees)
 	if err != nil {
 		return err
@@ -125,7 +128,7 @@ Loop:
 	log.Println("done")
 
 	log.Println("building index...")
-	if err := index.Build(); err != nil {
+	if err := index.Build(ctx); err != nil {
 		return err
 	}
 	log.Println("done")
@@ -148,6 +151,8 @@ func predictAction(c *cli.Context) error {
 	nDim := c.Uint("dim")
 	indexName := c.String("index")
 	inputName := c.String("input")
+
+	ctx := context.Background()
 	index, err := loadIndex(indexName, inputName)
 	if err != nil {
 		return err
@@ -163,7 +168,7 @@ Loop:
 		if err != nil {
 			return err
 		}
-		neighbors, err := index.Search(query.Feature, query.Neighbors, query.MaxCandidates)
+		neighbors, err := index.Search(ctx, query.Feature, query.Neighbors, query.MaxCandidates)
 		if err != nil {
 			return err
 		}

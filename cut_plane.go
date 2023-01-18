@@ -9,13 +9,13 @@ import (
 	"github.com/ar90n/countrymaam/linalg"
 )
 
-type CutPlane[T linalg.Number, U any] interface {
+type CutPlane[T linalg.Number, U comparable] interface {
 	Evaluate(feature []T, env linalg.Env[T]) bool
 	Distance(feature []T, env linalg.Env[T]) float64
 	Construct(elements []treeElement[T, U], indice []int, env linalg.Env[T]) (CutPlane[T, U], error)
 }
 
-type kdCutPlane[T linalg.Number, U any] struct {
+type kdCutPlane[T linalg.Number, U comparable] struct {
 	Axis  uint
 	Value float64
 }
@@ -46,7 +46,7 @@ func (cp kdCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int,
 	maxRange := maxValues[0] - minValues[0]
 	cutPlane := kdCutPlane[T, U]{
 		Axis:  uint(0),
-		Value: float64(maxValues[0]+minValues[0]) / 2,
+		Value: float64(linalg.Mid(maxValues[0], minValues[0])),
 	}
 	for i := uint(1); i < uint(len(minValues)); i++ {
 		diff := maxValues[i] - minValues[i]
@@ -54,7 +54,7 @@ func (cp kdCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int,
 			maxRange = diff
 			cutPlane = kdCutPlane[T, U]{
 				Axis:  i,
-				Value: float64(maxValues[i]+minValues[i]) / 2,
+				Value: float64(linalg.Mid(maxValues[i], minValues[i])),
 			}
 		}
 	}
@@ -62,7 +62,10 @@ func (cp kdCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int,
 	return &cutPlane, nil
 }
 
-type randomizedKdCutPlane[T linalg.Number, U any] struct {
+// randomizedKdCutPlane is a cut plane that is constructed by kdtree algorithm.
+// this is derived from flann library.
+// https://github.com/flann-lib/flann/blob/master/src/cpp/flann/algorithms/kdtree_index.h
+type randomizedKdCutPlane[T linalg.Number, U comparable] struct {
 	Axis  uint
 	Value T
 }
@@ -112,6 +115,7 @@ func (cp randomizedKdCutPlane[T, U]) Construct(elements []treeElement[T, U], ind
 		queue.Push(cutPlane, -float32(variance))
 	}
 
+	// Randomly select one of the best candidates.
 	nCandidates := linalg.Min(5, queue.Len())
 	nSkip := rand.Intn(nCandidates) - 1
 	for i := 0; i < nSkip; i++ {
@@ -120,7 +124,7 @@ func (cp randomizedKdCutPlane[T, U]) Construct(elements []treeElement[T, U], ind
 	return queue.Pop()
 }
 
-type rpCutPlane[T linalg.Number, U any] struct {
+type rpCutPlane[T linalg.Number, U comparable] struct {
 	NormalVector []float32
 	A            float64
 }

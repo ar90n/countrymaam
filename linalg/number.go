@@ -28,3 +28,11 @@ func Max[T Number](x, y T) T {
 	}
 	return y
 }
+
+func Mid[T Number](x, y T) T {
+	if x < y {
+		return Mid(y, x)
+	}
+
+	return y + (x-y)/2
+}

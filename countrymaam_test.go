@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"sort"
 	"testing"
 
 	"github.com/ar90n/countrymaam/linalg"
@@ -47,7 +46,7 @@ func TestSearchKNNVectors(t *testing.T) {
 	for _, alg := range []Algorithm{
 		{
 			"FlatIndex",
-			NewFlatIndex[float32, int](datasetDim, env),
+			NewFlatIndex[float32, int](datasetDim, 128, env),
 		},
 		{
 			"KDTreeIndex-lefSize:1",
@@ -75,11 +74,12 @@ func TestSearchKNNVectors(t *testing.T) {
 		},
 	} {
 		t.Run(alg.Name, func(t *testing.T) {
+			ctx := context.Background()
 			for i, data := range dataset {
 				data := data
 				alg.Index.Add(data[:], i)
 			}
-			alg.Index.Build()
+			alg.Index.Build(ctx)
 
 			for c, tc := range []TestCase{
 				{
@@ -109,7 +109,7 @@ func TestSearchKNNVectors(t *testing.T) {
 				},
 			} {
 				t.Run(fmt.Sprint(c), func(t *testing.T) {
-					results, _ := alg.Index.Search(tc.Query[:], tc.K, 64)
+					results, _ := alg.Index.Search(ctx, tc.Query[:], tc.K, 64)
 					if len(results) != len(tc.Expected) {
 						t.Errorf("Expected 1 result, got %d", len(results))
 					}
@@ -146,7 +146,7 @@ func TestRebuildIndex(t *testing.T) {
 	for _, alg := range []Algorithm{
 		{
 			"FlatIndex",
-			NewFlatIndex[float32, int](datasetDim, env),
+			NewFlatIndex[float32, int](datasetDim, 128, env),
 		},
 		{
 			"KDTreeIndex",
@@ -158,12 +158,13 @@ func TestRebuildIndex(t *testing.T) {
 		},
 	} {
 		t.Run(alg.Name, func(t *testing.T) {
+			ctx := context.Background()
 			nData := len(dataset)
 			nInitialData := nData / 2
 			for i := 0; i < nInitialData; i++ {
 				alg.Index.Add(dataset[i], i)
 			}
-			alg.Index.Build()
+			alg.Index.Build(ctx)
 
 			if !alg.Index.HasIndex() {
 				t.Error("Index should have been built")
@@ -191,7 +192,7 @@ func TestRebuildIndex(t *testing.T) {
 				},
 			} {
 				t.Run(fmt.Sprint(c), func(t *testing.T) {
-					results, _ := alg.Index.Search(tc.Query[:], tc.K, 64)
+					results, _ := alg.Index.Search(ctx, tc.Query[:], tc.K, 64)
 					if len(results) != len(tc.Expected) {
 						t.Errorf("Expected 1 result, got %d", len(results))
 					}
@@ -222,7 +223,7 @@ func TestBuildIndexWhenPoolIsEmpty(t *testing.T) {
 	for _, alg := range []TestCase{
 		{
 			"FlatIndex",
-			NewFlatIndex[float32, int](datasetDim, env),
+			NewFlatIndex[float32, int](datasetDim, 128, env),
 			true,
 		},
 		{
@@ -237,7 +238,8 @@ func TestBuildIndexWhenPoolIsEmpty(t *testing.T) {
 		},
 	} {
 		t.Run(alg.Name, func(t *testing.T) {
-			err := alg.Index.Build()
+			ctx := context.Background()
+			err := alg.Index.Build(ctx)
 			if (err == nil) != alg.Expected {
 				t.Errorf("Expected error to be %v, got %v", alg.Expected, err)
 			}
@@ -246,11 +248,12 @@ func TestBuildIndexWhenPoolIsEmpty(t *testing.T) {
 }
 
 func testSerDes[T linalg.Number, I Index[T, int]](t *testing.T, index I, dataset [][]T) error {
+	ctx := context.Background()
 	for i, data := range dataset {
 		data := data
 		index.Add(data[:], i)
 	}
-	index.Build()
+	index.Build(ctx)
 
 	buf := make([]byte, 0)
 	byteBuffer := bytes.NewBuffer(buf)
@@ -289,7 +292,7 @@ func TestSerDesKNNVectors(t *testing.T) {
 	env := linalg.NewLinAlgF32(linalg.LinAlgOptions{})
 
 	t.Run("FlatIndex", func(t *testing.T) {
-		testSerDes(t, NewFlatIndex[float32, int](datasetDim, env), dataset)
+		testSerDes(t, NewFlatIndex[float32, int](datasetDim, 128, env), dataset)
 	})
 	t.Run("KdTreeIndex-leafSize:1", func(t *testing.T) {
 		testSerDes(t, NewKdTreeIndex[float32, int](datasetDim, 1, env), dataset)
@@ -309,119 +312,4 @@ func TestSerDesKNNVectors(t *testing.T) {
 	t.Run("RandomizedRpTreeIndex-lefSize:1-5", func(t *testing.T) {
 		testSerDes(t, NewRandomizedRpTreeIndex[float32, int](datasetDim, 1, 5, env), dataset)
 	})
-}
-
-func TestSearchKNNVectors2(t *testing.T) {
-	type Algorithm struct {
-		Name  string
-		Index Index[float32, int]
-	}
-
-	type TestCase struct {
-		Query    [8]float32
-		K        uint
-		Radius   float64
-		Expected []int
-	}
-
-	dataset := getDataset1()
-	datasetDim := uint(len(dataset[0]))
-	env := linalg.NewLinAlgF32(linalg.LinAlgOptions{})
-	for _, alg := range []Algorithm{
-		{
-			"FlatIndex",
-			NewFlatIndex[float32, int](datasetDim, env),
-		},
-		{
-			"KDTreeIndex-lefSize:1",
-			NewKdTreeIndex[float32, int](datasetDim, 1, env),
-		},
-		{
-			"KDTreeIndex-leafSize:5",
-			NewKdTreeIndex[float32, int](datasetDim, 5, env),
-		},
-		{
-			"RandomizedKDTreeIndex-lefSize:1-5",
-			NewRandomizedKdTreeIndex[float32, int](datasetDim, 1, 5, env),
-		},
-		{
-			"RpTreeIndex-lefSize:1",
-			NewRpTreeIndex[float32, int](datasetDim, 1, env),
-		},
-		{
-			"RpTreeIndex-lefSize:5",
-			NewRpTreeIndex[float32, int](datasetDim, 5, env),
-		},
-		{
-			"RandomizedRpTreeIndex-lefSize:1-5",
-			NewRandomizedRpTreeIndex[float32, int](datasetDim, 1, 5, env),
-		},
-	} {
-		t.Run(alg.Name, func(t *testing.T) {
-			for i, data := range dataset {
-				data := data
-				alg.Index.Add(data[:], i)
-			}
-			alg.Index.Build()
-
-			for c, tc := range []TestCase{
-				{
-					Query:    [8]float32{-0.621, -0.586, -0.468, 0.494, 0.485, 0.407, 1.273, -1.1},
-					K:        1,
-					Expected: []int{5},
-				},
-				{
-					Query:    [8]float32{-0.83059702, -1.01070708, -0.15162675, -1.32760066, -1.19706362, -0.21952724, -0.27582108, 0.93780233},
-					K:        2,
-					Expected: []int{0, 9},
-				},
-				{
-					Query:    [8]float32{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
-					K:        5,
-					Expected: []int{2, 4, 5, 7, 9},
-				},
-				{
-					Query:    [8]float32{-0.621, -0.586, -0.468, 0.494, 0.485, 0.407, 1.273, -1.1},
-					K:        10,
-					Expected: []int{5, 7, 2, 8, 4, 1, 6, 0, 9, 3},
-				},
-				{
-					Query:    [8]float32{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
-					K:        5,
-					Expected: []int{2, 4, 5, 7, 9},
-				},
-			} {
-				t.Run(fmt.Sprint(c), func(t *testing.T) {
-					ctx := context.Background()
-					results := make([]Candidate[int], 0, 64)
-					founds := map[int]interface{}{}
-					for item := range alg.Index.Search2(ctx, tc.Query[:]) {
-						if _, ok := founds[item.Item]; ok {
-							continue
-						}
-						founds[item.Item] = struct{}{}
-						results = append(results, item)
-						if len(results) == 64 {
-							break
-						}
-					}
-					sort.Slice(results, func(i, j int) bool {
-						return results[i].Distance < results[j].Distance
-					})
-					results = results[:tc.K]
-					if len(results) != len(tc.Expected) {
-						t.Errorf("Expected 1 result, got %d", len(results))
-					}
-
-					resultIndice := []int{}
-					for _, v := range results {
-						resultIndice = append(resultIndice, v.Item)
-					}
-					if !reflect.DeepEqual(resultIndice, tc.Expected) {
-						t.Errorf("Expected results to be %v, got %v", tc.Expected, results)
-					}
-				})
-			}
-		})
-	}
 }

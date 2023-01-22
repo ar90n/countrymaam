@@ -3,11 +3,11 @@ package countrymaam
 import (
 	"context"
 	"io"
-	"runtime"
 	"sort"
 	"sync"
 
 	"github.com/ar90n/countrymaam/collection"
+	"github.com/ar90n/countrymaam/common"
 	"github.com/ar90n/countrymaam/linalg"
 	"github.com/ar90n/countrymaam/pipeline"
 )
@@ -117,7 +117,7 @@ func (fi flatIndex[T, U]) getChunks() <-chan chunk {
 	go func() {
 		defer close(ch)
 
-		n := GetProcNum(fi.nProc)
+		n := common.GetProcNum(fi.nProc)
 		bs := uint(len(fi.Features)) / n
 		rem := uint(len(fi.Features)) % n
 		bi := uint(0)
@@ -133,12 +133,4 @@ func (fi flatIndex[T, U]) getChunks() <-chan chunk {
 	}()
 
 	return ch
-}
-
-func GetProcNum(maxGoRoutines uint) uint {
-	if maxGoRoutines == 0 {
-		return uint(runtime.NumCPU())
-	}
-
-	return maxGoRoutines
 }

@@ -105,17 +105,22 @@ func (bsp *bspTreeIndex[T, U, C]) Build(ctx context.Context) error {
 		return errors.New("empty pool")
 	}
 
+	chs := make([]<-chan *treeNode[T, U], len(bsp.Roots))
 	bsp.Indice = make([][]int, len(bsp.Roots))
 	for i := range bsp.Roots {
 		indice := pipeline.ToSlice(ctx, pipeline.Seq(ctx, uint(len(bsp.Pool))))
 		rand.Shuffle(len(indice), func(i, j int) { indice[i], indice[j] = indice[j], indice[i] })
+		bsp.Indice[i] = indice
 
-		root, ok := <-bsp.buildTree(ctx, indice, 0)
+		chs[i] = bsp.buildTree(ctx, indice, 0)
+	}
+
+	for i, ch := range chs {
+		root, ok := <-ch
 		if !ok {
 			return fmt.Errorf("build %d-th index failed", i)
 		}
 
-		bsp.Indice[i] = indice
 		bsp.Roots[i] = root
 	}
 	return nil

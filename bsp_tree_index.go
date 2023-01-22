@@ -208,7 +208,7 @@ func (bsp bspTreeIndex[T, U, C]) HasIndex() bool {
 	return 0 < len(bsp.Roots)
 }
 
-func (bsp bspTreeIndex[T, U, C]) ClearIndex() {
+func (bsp *bspTreeIndex[T, U, C]) ClearIndex() {
 	bsp.Roots = nil
 }
 

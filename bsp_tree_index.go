@@ -2,6 +2,7 @@ package countrymaam
 
 import (
 	"context"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"io"
@@ -259,6 +260,92 @@ func searchNode[T linalg.Number, U comparable](ctx context.Context, root *treeNo
 	}()
 
 	return outputStream
+}
+
+func NewKdTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, env linalg.Env[T]) *bspTreeIndex[T, U, kdCutPlane[T, U]] {
+	gob.Register(kdCutPlane[T, U]{})
+	return &bspTreeIndex[T, U, kdCutPlane[T, U]]{
+		Dim:      dim,
+		Pool:     make([]treeElement[T, U], 0, 4096),
+		LeafSize: leafSize,
+		env:      env,
+		nTrees:   1,
+	}
+}
+
+func LoadKdTreeIndex[T linalg.Number, U comparable](r io.Reader) (*bspTreeIndex[T, U, kdCutPlane[T, U]], error) {
+	gob.Register(kdCutPlane[T, U]{})
+	index, err := loadIndex[bspTreeIndex[T, U, kdCutPlane[T, U]]](r)
+	if err != nil {
+		return nil, err
+	}
+
+	return &index, nil
+}
+
+func NewRpTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, env linalg.Env[T]) *bspTreeIndex[T, U, rpCutPlane[T, U]] {
+	gob.Register(rpCutPlane[T, U]{})
+	return &bspTreeIndex[T, U, rpCutPlane[T, U]]{
+		Dim:      dim,
+		Pool:     make([]treeElement[T, U], 0),
+		LeafSize: leafSize,
+		env:      env,
+		nTrees:   1,
+	}
+}
+
+func LoadRpTreeIndex[T linalg.Number, U comparable](r io.Reader) (*bspTreeIndex[T, U, rpCutPlane[T, U]], error) {
+	gob.Register(rpCutPlane[T, U]{})
+	index, err := loadIndex[bspTreeIndex[T, U, rpCutPlane[T, U]]](r)
+	if err != nil {
+		return nil, err
+	}
+
+	return &index, nil
+}
+
+func NewRandomizedKdTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, nTrees uint, env linalg.Env[T]) *bspTreeIndex[T, U, randomizedKdCutPlane[T, U]] {
+	gob.Register(kdCutPlane[T, U]{})
+	gob.Register(randomizedKdCutPlane[T, U]{})
+	return &bspTreeIndex[T, U, randomizedKdCutPlane[T, U]]{
+		Dim:      dim,
+		Pool:     make([]treeElement[T, U], 0),
+		LeafSize: leafSize,
+		env:      env,
+		nTrees:   nTrees,
+	}
+}
+
+func LoadRandomizedKdTreeIndex[T linalg.Number, U comparable](r io.Reader) (*bspTreeIndex[T, U, randomizedKdCutPlane[T, U]], error) {
+	gob.Register(kdCutPlane[T, U]{})
+	gob.Register(randomizedKdCutPlane[T, U]{})
+	index, err := loadIndex[bspTreeIndex[T, U, randomizedKdCutPlane[T, U]]](r)
+	if err != nil {
+		return nil, err
+	}
+
+	return &index, nil
+}
+
+func NewRandomizedRpTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, nTrees uint, env linalg.Env[T]) *bspTreeIndex[T, U, rpCutPlane[T, U]] {
+	gob.Register(rpCutPlane[T, U]{})
+	return &bspTreeIndex[T, U, rpCutPlane[T, U]]{
+		Dim:      dim,
+		Pool:     make([]treeElement[T, U], 0, 4096),
+		LeafSize: leafSize,
+		env:      env,
+		nTrees:   nTrees,
+	}
+}
+
+func LoadRandomizedRpTreeIndex[T linalg.Number, U comparable](r io.Reader) (*bspTreeIndex[T, U, rpCutPlane[T, U]], error) {
+	gob.Register(rpCutPlane[T, U]{})
+	index, err := loadIndex[bspTreeIndex[T, U, rpCutPlane[T, U]]](r)
+	if err != nil {
+		return nil, err
+	}
+
+	return &index, nil
 }
 
 func merge[T any](ctx context.Context, inputStreams ...<-chan collection.WithPriority[T]) <-chan mergeItem[T] {

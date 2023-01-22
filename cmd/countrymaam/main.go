@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -9,33 +10,35 @@ import (
 	"os"
 
 	"github.com/ar90n/countrymaam"
+	"github.com/ar90n/countrymaam/linalg"
 	"github.com/urfave/cli/v2"
 )
 
 type Query struct {
-	Feature       []float64
+	Feature       []float32
 	Neighbors     uint
 	MaxCandidates uint
 }
 
-func createIndex(index string, nDim uint, leafSize uint, nTrees uint) (countrymaam.Index[float64, int], error) {
+func createIndex(index string, nDim uint, leafSize uint, nTrees uint) (countrymaam.Index[float32, int], error) {
+	env := linalg.NewLinAlgF32(linalg.LinAlgOptions{})
 	switch index {
 	case "flat":
-		return countrymaam.NewFlatIndex[float64, int](nDim), nil
+		return countrymaam.NewFlatIndex[float32, int](nDim, 128, env), nil
 	case "kd-tree":
-		return countrymaam.NewKdTreeIndex[float64, int](nDim, leafSize), nil
+		return countrymaam.NewKdTreeIndex[float32, int](nDim, leafSize, env), nil
 	case "rkd-tree":
-		return countrymaam.NewRandomizedKdTreeIndex[float64, int](nDim, leafSize, nTrees), nil
+		return countrymaam.NewRandomizedKdTreeIndex[float32, int](nDim, leafSize, nTrees, env), nil
 	case "rp-tree":
-		return countrymaam.NewRpTreeIndex[float64, int](nDim, leafSize), nil
+		return countrymaam.NewRpTreeIndex[float32, int](nDim, leafSize, env), nil
 	case "rrp-tree":
-		return countrymaam.NewRandomizedRpTreeIndex[float64, int](nDim, leafSize, nTrees), nil
+		return countrymaam.NewRandomizedRpTreeIndex[float32, int](nDim, leafSize, nTrees, env), nil
 	default:
 		return nil, fmt.Errorf("unknown index name: %s", index)
 	}
 }
 
-func loadIndex(index string, inputPath string) (countrymaam.Index[float64, int], error) {
+func loadIndex(index string, inputPath string) (countrymaam.Index[float32, int], error) {
 	file, err := os.Open(inputPath)
 	if err != nil {
 		return nil, err
@@ -44,24 +47,24 @@ func loadIndex(index string, inputPath string) (countrymaam.Index[float64, int],
 
 	switch index {
 	case "flat":
-		return countrymaam.LoadFlatIndex[float64, int](file)
+		return countrymaam.LoadFlatIndex[float32, int](file)
 	case "kd-tree":
-		return countrymaam.LoadKdTreeIndex[float64, int](file)
+		return countrymaam.LoadKdTreeIndex[float32, int](file)
 	case "rkd-tree":
-		return countrymaam.LoadRandomizedKdTreeIndex[float64, int](file)
+		return countrymaam.LoadRandomizedKdTreeIndex[float32, int](file)
 	case "rp-tree":
-		return countrymaam.LoadRpTreeIndex[float64, int](file)
+		return countrymaam.LoadRpTreeIndex[float32, int](file)
 	case "rrp-tree":
-		return countrymaam.LoadRandomizedRpTreeIndex[float64, int](file)
+		return countrymaam.LoadRandomizedRpTreeIndex[float32, int](file)
 	default:
 		return nil, fmt.Errorf("unknown index name: %s", index)
 	}
 }
 
-func readFeature(r io.Reader, nDim uint) ([]float64, error) {
-	feature := make([]float64, nDim)
+func readFeature(r io.Reader, nDim uint) ([]float32, error) {
+	feature := make([]float32, nDim)
 	for j := uint(0); j < nDim; j++ {
-		var v float64
+		var v float32
 		err := binary.Read(r, binary.LittleEndian, &v)
 		if err != nil {
 			return nil, err
@@ -102,6 +105,8 @@ func trainAction(c *cli.Context) error {
 	leafSize := c.Uint("leaf-size")
 	outputName := c.String("output")
 	nTrees := c.Uint("tree-num")
+
+	ctx := context.Background()
 	index, err := createIndex(indexName, nDim, leafSize, nTrees)
 	if err != nil {
 		return err
@@ -123,7 +128,7 @@ Loop:
 	log.Println("done")
 
 	log.Println("building index...")
-	if err := index.Build(); err != nil {
+	if err := index.Build(ctx); err != nil {
 		return err
 	}
 	log.Println("done")
@@ -146,6 +151,8 @@ func predictAction(c *cli.Context) error {
 	nDim := c.Uint("dim")
 	indexName := c.String("index")
 	inputName := c.String("input")
+
+	ctx := context.Background()
 	index, err := loadIndex(indexName, inputName)
 	if err != nil {
 		return err
@@ -161,7 +168,7 @@ Loop:
 		if err != nil {
 			return err
 		}
-		neighbors, err := index.Search(query.Feature, query.Neighbors, query.MaxCandidates)
+		neighbors, err := index.Search(ctx, query.Feature, query.Neighbors, query.MaxCandidates)
 		if err != nil {
 			return err
 		}

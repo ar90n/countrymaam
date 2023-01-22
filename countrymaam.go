@@ -2,21 +2,23 @@ package countrymaam
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
 	"io"
 
-	"github.com/ar90n/countrymaam/number"
+	"github.com/ar90n/countrymaam/linalg"
 )
 
-type Index[T number.Number, U any] interface {
+type Index[T linalg.Number, U comparable] interface {
 	Add(feature []T, item U)
-	Search(feature []T, n uint, maxCandidates uint) ([]Candidate[U], error)
-	Build() error
+	Search(ctx context.Context, feature []T, n uint, maxCandidates uint) ([]Candidate[U], error)
+	SearchChannel(ctx context.Context, feature []T) <-chan Candidate[U]
+	Build(ctx context.Context) error
 	HasIndex() bool
 	Save(reader io.Writer) error
 }
 
-type Candidate[U any] struct {
+type Candidate[U comparable] struct {
 	Distance float64
 	Item     U
 }
@@ -50,15 +52,17 @@ func loadIndex[T any](r io.Reader) (ret T, _ error) {
 	return ret, nil
 }
 
-func NewFlatIndex[T number.Number, U any](dim uint) *flatIndex[T, U] {
+func NewFlatIndex[T linalg.Number, U comparable](dim uint, maxCandidates uint, env linalg.Env[T]) *flatIndex[T, U] {
 	return &flatIndex[T, U]{
-		Dim:      dim,
-		Features: make([][]T, 0),
-		Items:    make([]U, 0),
+		Dim:           dim,
+		Features:      make([][]T, 0),
+		Items:         make([]U, 0),
+		env:           env,
+		maxCandidates: maxCandidates,
 	}
 }
 
-func LoadFlatIndex[T number.Number, U any](r io.Reader) (*flatIndex[T, U], error) {
+func LoadFlatIndex[T linalg.Number, U comparable](r io.Reader) (*flatIndex[T, U], error) {
 	index, err := loadIndex[flatIndex[T, U]](r)
 	if err != nil {
 		return nil, err
@@ -67,17 +71,18 @@ func LoadFlatIndex[T number.Number, U any](r io.Reader) (*flatIndex[T, U], error
 	return &index, nil
 }
 
-func NewKdTreeIndex[T number.Number, U any](dim uint, leafSize uint) *bspTreeIndex[T, U, kdCutPlane[T, U]] {
+func NewKdTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, env linalg.Env[T]) *bspTreeIndex[T, U, kdCutPlane[T, U]] {
 	gob.Register(kdCutPlane[T, U]{})
 	return &bspTreeIndex[T, U, kdCutPlane[T, U]]{
 		Dim:      dim,
 		Pool:     make([]treeElement[T, U], 0, 4096),
-		Roots:    make([]*treeNode[T, U], 1),
 		LeafSize: leafSize,
+		env:      env,
+		nTrees:   1,
 	}
 }
 
-func LoadKdTreeIndex[T number.Number, U any](r io.Reader) (*bspTreeIndex[T, U, kdCutPlane[T, U]], error) {
+func LoadKdTreeIndex[T linalg.Number, U comparable](r io.Reader) (*bspTreeIndex[T, U, kdCutPlane[T, U]], error) {
 	gob.Register(kdCutPlane[T, U]{})
 	index, err := loadIndex[bspTreeIndex[T, U, kdCutPlane[T, U]]](r)
 	if err != nil {
@@ -87,17 +92,18 @@ func LoadKdTreeIndex[T number.Number, U any](r io.Reader) (*bspTreeIndex[T, U, k
 	return &index, nil
 }
 
-func NewRpTreeIndex[T number.Number, U any](dim uint, leafSize uint) *bspTreeIndex[T, U, rpCutPlane[T, U]] {
+func NewRpTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, env linalg.Env[T]) *bspTreeIndex[T, U, rpCutPlane[T, U]] {
 	gob.Register(rpCutPlane[T, U]{})
 	return &bspTreeIndex[T, U, rpCutPlane[T, U]]{
 		Dim:      dim,
 		Pool:     make([]treeElement[T, U], 0),
-		Roots:    make([]*treeNode[T, U], 1),
 		LeafSize: leafSize,
+		env:      env,
+		nTrees:   1,
 	}
 }
 
-func LoadRpTreeIndex[T number.Number, U any](r io.Reader) (*bspTreeIndex[T, U, rpCutPlane[T, U]], error) {
+func LoadRpTreeIndex[T linalg.Number, U comparable](r io.Reader) (*bspTreeIndex[T, U, rpCutPlane[T, U]], error) {
 	gob.Register(rpCutPlane[T, U]{})
 	index, err := loadIndex[bspTreeIndex[T, U, rpCutPlane[T, U]]](r)
 	if err != nil {
@@ -107,18 +113,19 @@ func LoadRpTreeIndex[T number.Number, U any](r io.Reader) (*bspTreeIndex[T, U, r
 	return &index, nil
 }
 
-func NewRandomizedKdTreeIndex[T number.Number, U any](dim uint, leafSize uint, nTrees uint) *bspTreeIndex[T, U, randomizedKdCutPlane[T, U]] {
+func NewRandomizedKdTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, nTrees uint, env linalg.Env[T]) *bspTreeIndex[T, U, randomizedKdCutPlane[T, U]] {
 	gob.Register(kdCutPlane[T, U]{})
 	gob.Register(randomizedKdCutPlane[T, U]{})
 	return &bspTreeIndex[T, U, randomizedKdCutPlane[T, U]]{
 		Dim:      dim,
 		Pool:     make([]treeElement[T, U], 0),
-		Roots:    make([]*treeNode[T, U], nTrees),
 		LeafSize: leafSize,
+		env:      env,
+		nTrees:   nTrees,
 	}
 }
 
-func LoadRandomizedKdTreeIndex[T number.Number, U any](r io.Reader) (*bspTreeIndex[T, U, randomizedKdCutPlane[T, U]], error) {
+func LoadRandomizedKdTreeIndex[T linalg.Number, U comparable](r io.Reader) (*bspTreeIndex[T, U, randomizedKdCutPlane[T, U]], error) {
 	gob.Register(kdCutPlane[T, U]{})
 	gob.Register(randomizedKdCutPlane[T, U]{})
 	index, err := loadIndex[bspTreeIndex[T, U, randomizedKdCutPlane[T, U]]](r)
@@ -129,17 +136,18 @@ func LoadRandomizedKdTreeIndex[T number.Number, U any](r io.Reader) (*bspTreeInd
 	return &index, nil
 }
 
-func NewRandomizedRpTreeIndex[T number.Number, U any](dim uint, leafSize uint, nTrees uint) *bspTreeIndex[T, U, rpCutPlane[T, U]] {
+func NewRandomizedRpTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, nTrees uint, env linalg.Env[T]) *bspTreeIndex[T, U, rpCutPlane[T, U]] {
 	gob.Register(rpCutPlane[T, U]{})
 	return &bspTreeIndex[T, U, rpCutPlane[T, U]]{
 		Dim:      dim,
 		Pool:     make([]treeElement[T, U], 0, 4096),
-		Roots:    make([]*treeNode[T, U], nTrees),
 		LeafSize: leafSize,
+		env:      env,
+		nTrees:   nTrees,
 	}
 }
 
-func LoadRandomizedRpTreeIndex[T number.Number, U any](r io.Reader) (*bspTreeIndex[T, U, rpCutPlane[T, U]], error) {
+func LoadRandomizedRpTreeIndex[T linalg.Number, U comparable](r io.Reader) (*bspTreeIndex[T, U, rpCutPlane[T, U]], error) {
 	gob.Register(rpCutPlane[T, U]{})
 	index, err := loadIndex[bspTreeIndex[T, U, rpCutPlane[T, U]]](r)
 	if err != nil {

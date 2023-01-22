@@ -27,13 +27,23 @@ type treeNode[T linalg.Number, U comparable] struct {
 	Right    *treeNode[T, U]
 }
 
+type treeRoot[T linalg.Number, U comparable] struct {
+	Indice []int
+	Node   *treeNode[T, U]
+}
+
 type bspTreeIndex[T linalg.Number, U comparable, C CutPlane[T, U]] struct {
 	Dim      uint
 	Pool     []treeElement[T, U]
-	Indice   [][]int
-	Roots    []*treeNode[T, U]
+	Roots    []treeRoot[T, U]
 	LeafSize uint
 	env      linalg.Env[T]
+	nTrees   uint
+}
+
+type mergeItem[T any] struct {
+	Item T
+	From int
 }
 
 var _ = (*bspTreeIndex[float32, int, kdCutPlane[float32, int]])(nil)
@@ -44,6 +54,22 @@ func (bsp *bspTreeIndex[T, U, C]) Add(feature []T, item U) {
 		Feature: feature,
 	})
 	bsp.ClearIndex()
+}
+
+func (bsp *bspTreeIndex[T, U, C]) buildRoot(ctx context.Context, indice []int, offset uint) <-chan treeRoot[T, U] {
+	outputStream := make(chan treeRoot[T, U])
+	go func() {
+		defer close(outputStream)
+		node, ok := <-bsp.buildTree(ctx, indice, offset)
+		if !ok {
+			return
+		}
+		outputStream <- treeRoot[T, U]{
+			Indice: indice,
+			Node:   node,
+		}
+	}()
+	return outputStream
 }
 
 func (bsp *bspTreeIndex[T, U, C]) buildTree(ctx context.Context, indice []int, offset uint) <-chan *treeNode[T, U] {
@@ -105,30 +131,22 @@ func (bsp *bspTreeIndex[T, U, C]) Build(ctx context.Context) error {
 		return errors.New("empty pool")
 	}
 
-	chs := make([]<-chan *treeNode[T, U], len(bsp.Roots))
-	bsp.Indice = make([][]int, len(bsp.Roots))
-	for i := range bsp.Roots {
+	rootStreams := make([]<-chan treeRoot[T, U], bsp.nTrees)
+	for i := range rootStreams {
 		indice := pipeline.ToSlice(ctx, pipeline.Seq(ctx, uint(len(bsp.Pool))))
 		rand.Shuffle(len(indice), func(i, j int) { indice[i], indice[j] = indice[j], indice[i] })
-		bsp.Indice[i] = indice
-
-		chs[i] = bsp.buildTree(ctx, indice, 0)
+		rootStreams[i] = bsp.buildRoot(ctx, indice, 0)
 	}
 
-	for i, ch := range chs {
+	for i, ch := range rootStreams {
 		root, ok := <-ch
 		if !ok {
 			return fmt.Errorf("build %d-th index failed", i)
 		}
 
-		bsp.Roots[i] = root
+		bsp.Roots = append(bsp.Roots, root)
 	}
 	return nil
-}
-
-type nodeQueueItem[T linalg.Number, U comparable] struct {
-	Node      *treeNode[T, U]
-	TreeIndex int
 }
 
 func (bsp *bspTreeIndex[T, U, C]) Search(ctx context.Context, query []T, n uint, maxCandidates uint) ([]Candidate[U], error) {
@@ -155,19 +173,23 @@ func (bsp *bspTreeIndex[T, U, C]) SearchChannel(ctx context.Context, query []T) 
 			bsp.Build(ctx)
 		}
 
+		if !bsp.HasIndex() {
+			return errors.New("no index")
+		}
+
 		nodeStreams := make([]<-chan collection.WithPriority[*treeNode[T, U]], 0, len(bsp.Roots))
 		for i, root := range bsp.Roots {
-			if root == nil {
+			if root.Node == nil {
 				return fmt.Errorf("%d-th index is not created", i)
 			}
 
-			nodeStreams = append(nodeStreams, searchNode(ctx, root, query, bsp.env))
+			nodeStreams = append(nodeStreams, searchNode(ctx, root.Node, query, bsp.env))
 		}
 		mergedStream := merge(ctx, nodeStreams...)
 
 		for mi := range pipeline.OrDone(ctx, mergedStream) {
 			node := mi.Item
-			indice := bsp.Indice[mi.From]
+			indice := bsp.Roots[mi.From].Indice
 			for i := node.Begin; i < node.End; i++ {
 				distance := bsp.env.SqL2(query, bsp.Pool[indice[i]].Feature)
 				outputStream <- Candidate[U]{
@@ -183,19 +205,11 @@ func (bsp *bspTreeIndex[T, U, C]) SearchChannel(ctx context.Context, query []T) 
 }
 
 func (bsp bspTreeIndex[T, U, C]) HasIndex() bool {
-	for i := range bsp.Roots {
-		if bsp.Roots[i] == nil {
-			return false
-		}
-	}
-
-	return true
+	return 0 < len(bsp.Roots)
 }
 
 func (bsp bspTreeIndex[T, U, C]) ClearIndex() {
-	for i := range bsp.Roots {
-		bsp.Roots[i] = nil
-	}
+	bsp.Roots = nil
 }
 
 func (bsp bspTreeIndex[T, U, C]) Empty() bool {
@@ -245,11 +259,6 @@ func searchNode[T linalg.Number, U comparable](ctx context.Context, root *treeNo
 	}()
 
 	return outputStream
-}
-
-type mergeItem[T any] struct {
-	Item T
-	From int
 }
 
 func merge[T any](ctx context.Context, inputStreams ...<-chan collection.WithPriority[T]) <-chan mergeItem[T] {

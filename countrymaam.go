@@ -76,9 +76,9 @@ func NewKdTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, env 
 	return &bspTreeIndex[T, U, kdCutPlane[T, U]]{
 		Dim:      dim,
 		Pool:     make([]treeElement[T, U], 0, 4096),
-		Roots:    make([]*treeNode[T, U], 1),
 		LeafSize: leafSize,
 		env:      env,
+		nTrees:   1,
 	}
 }
 
@@ -97,9 +97,9 @@ func NewRpTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, env 
 	return &bspTreeIndex[T, U, rpCutPlane[T, U]]{
 		Dim:      dim,
 		Pool:     make([]treeElement[T, U], 0),
-		Roots:    make([]*treeNode[T, U], 1),
 		LeafSize: leafSize,
 		env:      env,
+		nTrees:   1,
 	}
 }
 
@@ -119,9 +119,9 @@ func NewRandomizedKdTreeIndex[T linalg.Number, U comparable](dim uint, leafSize 
 	return &bspTreeIndex[T, U, randomizedKdCutPlane[T, U]]{
 		Dim:      dim,
 		Pool:     make([]treeElement[T, U], 0),
-		Roots:    make([]*treeNode[T, U], nTrees),
 		LeafSize: leafSize,
 		env:      env,
+		nTrees:   nTrees,
 	}
 }
 
@@ -141,9 +141,9 @@ func NewRandomizedRpTreeIndex[T linalg.Number, U comparable](dim uint, leafSize 
 	return &bspTreeIndex[T, U, rpCutPlane[T, U]]{
 		Dim:      dim,
 		Pool:     make([]treeElement[T, U], 0, 4096),
-		Roots:    make([]*treeNode[T, U], nTrees),
 		LeafSize: leafSize,
 		env:      env,
+		nTrees:   nTrees,
 	}
 }
 

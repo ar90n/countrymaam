@@ -7,12 +7,10 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
-	"sort"
 	"strconv"
 
 	"github.com/ar90n/countrymaam"
 	"github.com/ar90n/countrymaam/linalg"
-	"github.com/ar90n/countrymaam/pipeline"
 )
 
 //go:embed dim064.csv
@@ -75,18 +73,4 @@ func main() {
 	for i, n := range neighbors {
 		fmt.Printf("%d: %d, %f\n", i, n.Item, n.Distance)
 	}
-
-	ch := index.SearchChannel(ctx, query)
-	ch = pipeline.Unique(ctx, ch)
-	ch = pipeline.Take(ctx, 64, ch)
-	results := pipeline.ToSlice(ctx, ch)
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].Distance < results[j].Distance
-	})
-
-	fmt.Println()
-	for i, n := range results[:5] {
-		fmt.Printf("%d: %d, %f\n", i, n.Item, n.Distance)
-	}
-
 }

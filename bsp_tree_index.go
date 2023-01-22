@@ -138,7 +138,7 @@ func (bsp *bspTreeIndex[T, U, C]) Search(ctx context.Context, query []T, n uint,
 	if uint(len(items)) < n {
 		n = uint(len(items))
 	}
-	return items, nil
+	return items[:n], nil
 }
 
 func (bsp *bspTreeIndex[T, U, C]) SearchChannel(ctx context.Context, query []T) <-chan Candidate[U] {

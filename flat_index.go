@@ -45,7 +45,7 @@ func (fi flatIndex[T, U]) Search(ctx context.Context, query []T, n uint, maxCand
 	if uint(len(items)) < n {
 		n = uint(len(items))
 	}
-	return items, nil
+	return items[:n], nil
 }
 
 func (fi flatIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-chan Candidate[U] {

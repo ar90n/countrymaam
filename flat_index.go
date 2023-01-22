@@ -13,12 +13,11 @@ import (
 )
 
 type flatIndex[T linalg.Number, U comparable] struct {
-	Dim           uint
-	Features      [][]T
-	Items         []U
-	env           linalg.Env[T]
-	maxCandidates uint
-	nProc         uint
+	Dim      uint
+	Features [][]T
+	Items    []U
+	env      linalg.Env[T]
+	nProc    uint
 }
 
 var _ = (*flatIndex[float32, int])(nil)
@@ -80,7 +79,7 @@ func (fi flatIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-chan C
 	go func() {
 		defer close(outputStream)
 
-		candidates := collection.NewPriorityQueue[U](int(fi.maxCandidates))
+		candidates := collection.NewPriorityQueue[U](32)
 		for item := range featStream {
 			candidates.Push(item.Item, item.Priority)
 		}
@@ -135,13 +134,12 @@ func (fi flatIndex[T, U]) getChunks() <-chan chunk {
 	return ch
 }
 
-func NewFlatIndex[T linalg.Number, U comparable](dim uint, maxCandidates uint, env linalg.Env[T]) *flatIndex[T, U] {
+func NewFlatIndex[T linalg.Number, U comparable](dim uint, env linalg.Env[T]) *flatIndex[T, U] {
 	return &flatIndex[T, U]{
-		Dim:           dim,
-		Features:      make([][]T, 0),
-		Items:         make([]U, 0),
-		env:           env,
-		maxCandidates: maxCandidates,
+		Dim:      dim,
+		Features: make([][]T, 0),
+		Items:    make([]U, 0),
+		env:      env,
 	}
 }
 

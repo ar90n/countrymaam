@@ -46,7 +46,7 @@ func TestSearchKNNVectors(t *testing.T) {
 	for _, alg := range []Algorithm{
 		{
 			"FlatIndex",
-			NewFlatIndex[float32, int](datasetDim, 128, env),
+			NewFlatIndex[float32, int](datasetDim, env),
 		},
 		{
 			"KDTreeIndex-lefSize:1",
@@ -146,7 +146,7 @@ func TestRebuildIndex(t *testing.T) {
 	for _, alg := range []Algorithm{
 		{
 			"FlatIndex",
-			NewFlatIndex[float32, int](datasetDim, 128, env),
+			NewFlatIndex[float32, int](datasetDim, env),
 		},
 		{
 			"KDTreeIndex",
@@ -223,7 +223,7 @@ func TestBuildIndexWhenPoolIsEmpty(t *testing.T) {
 	for _, alg := range []TestCase{
 		{
 			"FlatIndex",
-			NewFlatIndex[float32, int](datasetDim, 128, env),
+			NewFlatIndex[float32, int](datasetDim, env),
 			true,
 		},
 		{
@@ -292,7 +292,7 @@ func TestSerDesKNNVectors(t *testing.T) {
 	env := linalg.NewLinAlgF32(linalg.LinAlgOptions{})
 
 	t.Run("FlatIndex", func(t *testing.T) {
-		testSerDes(t, NewFlatIndex[float32, int](datasetDim, 128, env), dataset)
+		testSerDes(t, NewFlatIndex[float32, int](datasetDim, env), dataset)
 	})
 	t.Run("KdTreeIndex-leafSize:1", func(t *testing.T) {
 		testSerDes(t, NewKdTreeIndex[float32, int](datasetDim, 1, env), dataset)

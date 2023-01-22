@@ -24,7 +24,7 @@ func createIndex(index string, nDim uint, leafSize uint, nTrees uint) (countryma
 	env := linalg.NewLinAlgF32(linalg.LinAlgOptions{})
 	switch index {
 	case "flat":
-		return countrymaam.NewFlatIndex[float32, int](nDim, 128, env), nil
+		return countrymaam.NewFlatIndex[float32, int](nDim, env), nil
 	case "kd-tree":
 		return countrymaam.NewKdTreeIndex[float32, int](nDim, leafSize, env), nil
 	case "rkd-tree":

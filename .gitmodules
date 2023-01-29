@@ -1,3 +1,6 @@
 [submodule "benchmark/ann-benchmarks"]
-	path = benchmark/ann-benchmarks
+	path = benchmark/ann-benchmarks/ann-benchmarks
 	url = git@github.com:erikbern/ann-benchmarks.git
+[submodule "benchmark/annbench/annbench"]
+	path = benchmark/annbench/annbench
+	url = https://github.com/matsui528/annbench.git

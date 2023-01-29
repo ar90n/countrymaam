@@ -1,0 +1,2 @@
+FROM ann-benchmarks
+COPY bin/countrymaam /usr/local/bin

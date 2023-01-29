@@ -33,7 +33,7 @@ class Countrymaam(BaseANN):
        	    "--output", index_file_path
         ], stdin=subprocess.PIPE)
 
-        p.stdin.write(struct.pack(f"={X.size}d", *np.ravel(X)))
+        p.stdin.write(struct.pack(f"={X.size}f", *np.ravel(X)))
         p.communicate()
         p.stdin.close()
 
@@ -52,7 +52,7 @@ class Countrymaam(BaseANN):
         v = v.astype(np.float64)
         self._pipe.stdin.write(struct.pack(f"=i", self._search_k))
         self._pipe.stdin.write(struct.pack(f"=i", n))
-        self._pipe.stdin.write(struct.pack(f"={v.size}d", *v))
+        self._pipe.stdin.write(struct.pack(f"={v.size}f", *v))
         self._pipe.stdin.flush()
 
         rn = struct.unpack("=i", self._pipe.stdout.read(4))[0]

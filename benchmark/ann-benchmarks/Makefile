@@ -1,13 +1,18 @@
 .ONESHELL:
 POETRY=poetry
+GO=go
 PARALLELISM=1
 
-.PHONY: setup benchmark flann annoy countrymaam-kd countrymaam-rp test
+.PHONY: setup benchmark flann annoy countrymaam-kd countrymaam-rp
 
-setup:
+build:
+	$(GO) build -o bin/countrymaam ../../cmd/countrymaam/main.go
+	docker build -t ann-benchmarks-countrymaam -f Dockerfile.countrymaam .
+
+setup: build
 	cd ann-benchmarks
 	cp ../countrymaam.py ./ann_benchmarks/algorithms
-	cp ../Docker.countrymaam ./install
+	cp ../Dockerfile.countrymaam ./install
 	patch -N < ../patch_algos.yaml
 	$(POETRY) init --python '>= 3.8, < 3.11' -n
 	$(POETRY) add $$(cat requirements.txt | sed 's/=.*//g')
@@ -34,5 +39,4 @@ countrymaam-rp: setup
 
 benchmark: annoy flann countrymaam-kd countrymaam-rp
 	cd ann-benchmarks
-	sudo chmod -R 777 ./results
 	$(POETRY) run python plot.py --dataset fashion-mnist-784-euclidean -Y log -X a4

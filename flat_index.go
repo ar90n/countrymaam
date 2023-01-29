@@ -134,7 +134,8 @@ func (fi flatIndex[T, U]) getChunks() <-chan chunk {
 	return ch
 }
 
-func NewFlatIndex[T linalg.Number, U comparable](dim uint, env linalg.Env[T]) *flatIndex[T, U] {
+func NewFlatIndex[T linalg.Number, U comparable](dim uint, opts linalg.LinAlgOptions) *flatIndex[T, U] {
+	env := linalg.NewLinAlg[T](opts)
 	return &flatIndex[T, U]{
 		Dim:      dim,
 		Features: make([][]T, 0),
@@ -143,11 +144,12 @@ func NewFlatIndex[T linalg.Number, U comparable](dim uint, env linalg.Env[T]) *f
 	}
 }
 
-func LoadFlatIndex[T linalg.Number, U comparable](r io.Reader) (*flatIndex[T, U], error) {
+func LoadFlatIndex[T linalg.Number, U comparable](r io.Reader, opts linalg.LinAlgOptions) (*flatIndex[T, U], error) {
 	index, err := loadIndex[flatIndex[T, U]](r)
 	if err != nil {
 		return nil, err
 	}
+	index.env = linalg.NewLinAlg[T](opts)
 
 	return &index, nil
 }

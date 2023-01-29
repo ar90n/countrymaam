@@ -173,6 +173,6 @@ func testNewLinAlgImpl[T Number](t *testing.T, f func(LinAlgOptions) Env[T], suf
 }
 
 func Test_NewLinAlg(t *testing.T) {
-	testNewLinAlgImpl(t, NewLinAlgUint8, "u8")
-	testNewLinAlgImpl(t, NewLinAlgF32, "f32")
+	testNewLinAlgImpl(t, NewLinAlg[uint8], "u8")
+	testNewLinAlgImpl(t, NewLinAlg[float32], "f32")
 }

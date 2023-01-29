@@ -34,5 +34,4 @@ countrymaam-rp: setup
 
 benchmark: annoy flann countrymaam-kd countrymaam-rp
 	cd ann-benchmarks
-	sudo chmod -R 777 ./results
 	$(POETRY) run python plot.py --dataset fashion-mnist-784-euclidean -Y log -X a4

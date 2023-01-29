@@ -1,4 +1,4 @@
-FROM golang:1.20-rc as builder
+FROM golang:1.20 as builder
 
 RUN go install github.com/ar90n/countrymaam/cmd/countrymaam@latest
 

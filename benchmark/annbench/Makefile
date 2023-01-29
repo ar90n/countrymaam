@@ -1,10 +1,17 @@
 .ONESHELL:
-POETRY=docker run --rm -it --privileged --gpus all -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro -v /etc/subuid:/etc/subuid:ro -v /var/run/docker.sock:/var/run/docker.sock -v /usr/bin/docker:/usr/bin/docker --network=host -e HOME=/home/argon -u=501:6809 -v /home:/home -v /opt:/opt -v /tmp:/tmp -v /mnt:/mnt -w $$(pwd) --entrypoint poetry ar90n/python:latest
+POETRY=poetry
+GO=go
 
-.PHONY: setup benchmark flann annoy
+.PHONY: build setup benchmark annoy-siftsmall linear-siftsmall countrymaam-siftsmall plot
 
-setup:
+build:
+	$(GO) build -o bin/countrymaam ../../cmd/countrymaam/main.go
+
+setup: build
 	cd annbench
+	cp ../countrymaam.py ./annbench/algo/countrymaam.py
+	cp ../countrymaam.yaml ./conf/algo/countrymaam.yaml
+	patch -p 1 -forward < ../proxy.patch
 	$(POETRY) init --python '>= 3.8, < 3.11' -n
 	$(POETRY) add $$(cat requirements.txt | sed 's/=.*//g')
 	$(POETRY) add faiss-cpu
@@ -18,6 +25,15 @@ linear-siftsmall: setup
 	cd annbench
 	$(POETRY) run python run.py dataset=siftsmall algo=linear
 
-benchmark: annoy-siftsmall linear-siftsmall
+countrymaam-siftsmall: setup
+	cd annbench
+	$(POETRY) run python run.py dataset=siftsmall algo=countrymaam
+
+
+benchmark: annoy-siftsmall linear-siftsmall countrymaam-siftsmall
+	cd annbench
+	$(POETRY) run python plot.py
+
+plot: 
 	cd annbench
 	$(POETRY) run python plot.py

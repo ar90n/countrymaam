@@ -1,6 +1,8 @@
 package linalg
 
 import (
+	"reflect"
+
 	"github.com/ar90n/countrymaam/linalg/asm"
 )
 
@@ -15,7 +17,24 @@ type LinAlgOptions struct {
 	UseAVX2 bool
 }
 
-func NewLinAlgF32(options LinAlgOptions) Env[float32] {
+func NewLinAlg[T Number](options LinAlgOptions) Env[T] {
+	if reflect.ValueOf(*new(T)).Kind() == reflect.Float32 {
+		return newLinAlgF32(options).(Env[T])
+	}
+
+	if reflect.ValueOf(*new(T)).Kind() == reflect.Uint8 {
+		return newLinAlgUint8(options).(Env[T])
+	}
+
+	return Env[T]{
+		SqL2:        sqL2[T, T],
+		SqL2WithF32: sqL2[T, float32],
+		Dot:         dot[T, T],
+		DotWithF32:  dot[T, float32],
+	}
+}
+
+func newLinAlgF32(options LinAlgOptions) interface{} {
 	if options.UseAVX2 {
 		return Env[float32]{
 			SqL2:        asm.SqL2F32AVX2,
@@ -33,7 +52,7 @@ func NewLinAlgF32(options LinAlgOptions) Env[float32] {
 	}
 }
 
-func NewLinAlgUint8(options LinAlgOptions) Env[uint8] {
+func newLinAlgUint8(options LinAlgOptions) interface{} {
 	if options.UseAVX2 {
 		panic("AVX2 not implemented yet")
 	}

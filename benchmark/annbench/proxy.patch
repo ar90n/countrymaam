@@ -1,0 +1,24 @@
+diff --git a/annbench/algo/proxy.py b/annbench/algo/proxy.py
+index 43977aa..88085e2 100644
+--- a/annbench/algo/proxy.py
++++ b/annbench/algo/proxy.py
+@@ -32,6 +32,11 @@ if check_module("scann"):
+     from .scann import ScannANN
+ 
+ 
++from .countrymaam import Countrymaam
++if check_module("countrymaam"):
++    from .countrymaam import Countrymaam
++
++
+ def instantiate_algorithm(name):
+     """
+     Instantiate an algorithm class
+@@ -66,5 +71,7 @@ def instantiate_algorithm(name):
+         return NsgANN()
+     elif name == "scann":
+         return ScannANN()
++    elif name == "countrymaam":
++        return Countrymaam()
+     else:
+         return None

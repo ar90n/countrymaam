@@ -262,8 +262,10 @@ func searchNode[T linalg.Number, U comparable](ctx context.Context, root *treeNo
 	return outputStream
 }
 
-func NewKdTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, env linalg.Env[T]) *bspTreeIndex[T, U, kdCutPlane[T, U]] {
+func NewKdTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, opts linalg.LinAlgOptions) *bspTreeIndex[T, U, kdCutPlane[T, U]] {
 	gob.Register(kdCutPlane[T, U]{})
+
+	env := linalg.NewLinAlg[T](opts)
 	return &bspTreeIndex[T, U, kdCutPlane[T, U]]{
 		Dim:      dim,
 		Pool:     make([]treeElement[T, U], 0, 4096),
@@ -273,18 +275,21 @@ func NewKdTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, env 
 	}
 }
 
-func LoadKdTreeIndex[T linalg.Number, U comparable](r io.Reader) (*bspTreeIndex[T, U, kdCutPlane[T, U]], error) {
+func LoadKdTreeIndex[T linalg.Number, U comparable](r io.Reader, opts linalg.LinAlgOptions) (*bspTreeIndex[T, U, kdCutPlane[T, U]], error) {
 	gob.Register(kdCutPlane[T, U]{})
 	index, err := loadIndex[bspTreeIndex[T, U, kdCutPlane[T, U]]](r)
 	if err != nil {
 		return nil, err
 	}
+	index.env = linalg.NewLinAlg[T](opts)
 
 	return &index, nil
 }
 
-func NewRpTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, env linalg.Env[T]) *bspTreeIndex[T, U, rpCutPlane[T, U]] {
+func NewRpTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, opts linalg.LinAlgOptions) *bspTreeIndex[T, U, rpCutPlane[T, U]] {
 	gob.Register(rpCutPlane[T, U]{})
+
+	env := linalg.NewLinAlg[T](opts)
 	return &bspTreeIndex[T, U, rpCutPlane[T, U]]{
 		Dim:      dim,
 		Pool:     make([]treeElement[T, U], 0),
@@ -294,19 +299,22 @@ func NewRpTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, env 
 	}
 }
 
-func LoadRpTreeIndex[T linalg.Number, U comparable](r io.Reader) (*bspTreeIndex[T, U, rpCutPlane[T, U]], error) {
+func LoadRpTreeIndex[T linalg.Number, U comparable](r io.Reader, opts linalg.LinAlgOptions) (*bspTreeIndex[T, U, rpCutPlane[T, U]], error) {
 	gob.Register(rpCutPlane[T, U]{})
 	index, err := loadIndex[bspTreeIndex[T, U, rpCutPlane[T, U]]](r)
 	if err != nil {
 		return nil, err
 	}
+	index.env = linalg.NewLinAlg[T](opts)
 
 	return &index, nil
 }
 
-func NewRandomizedKdTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, nTrees uint, env linalg.Env[T]) *bspTreeIndex[T, U, randomizedKdCutPlane[T, U]] {
+func NewRandomizedKdTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, nTrees uint, opts linalg.LinAlgOptions) *bspTreeIndex[T, U, randomizedKdCutPlane[T, U]] {
 	gob.Register(kdCutPlane[T, U]{})
 	gob.Register(randomizedKdCutPlane[T, U]{})
+
+	env := linalg.NewLinAlg[T](opts)
 	return &bspTreeIndex[T, U, randomizedKdCutPlane[T, U]]{
 		Dim:      dim,
 		Pool:     make([]treeElement[T, U], 0),
@@ -316,19 +324,22 @@ func NewRandomizedKdTreeIndex[T linalg.Number, U comparable](dim uint, leafSize 
 	}
 }
 
-func LoadRandomizedKdTreeIndex[T linalg.Number, U comparable](r io.Reader) (*bspTreeIndex[T, U, randomizedKdCutPlane[T, U]], error) {
+func LoadRandomizedKdTreeIndex[T linalg.Number, U comparable](r io.Reader, opts linalg.LinAlgOptions) (*bspTreeIndex[T, U, randomizedKdCutPlane[T, U]], error) {
 	gob.Register(kdCutPlane[T, U]{})
 	gob.Register(randomizedKdCutPlane[T, U]{})
 	index, err := loadIndex[bspTreeIndex[T, U, randomizedKdCutPlane[T, U]]](r)
 	if err != nil {
 		return nil, err
 	}
+	index.env = linalg.NewLinAlg[T](opts)
 
 	return &index, nil
 }
 
-func NewRandomizedRpTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, nTrees uint, env linalg.Env[T]) *bspTreeIndex[T, U, rpCutPlane[T, U]] {
+func NewRandomizedRpTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, nTrees uint, opts linalg.LinAlgOptions) *bspTreeIndex[T, U, rpCutPlane[T, U]] {
 	gob.Register(rpCutPlane[T, U]{})
+
+	env := linalg.NewLinAlg[T](opts)
 	return &bspTreeIndex[T, U, rpCutPlane[T, U]]{
 		Dim:      dim,
 		Pool:     make([]treeElement[T, U], 0, 4096),
@@ -338,12 +349,13 @@ func NewRandomizedRpTreeIndex[T linalg.Number, U comparable](dim uint, leafSize 
 	}
 }
 
-func LoadRandomizedRpTreeIndex[T linalg.Number, U comparable](r io.Reader) (*bspTreeIndex[T, U, rpCutPlane[T, U]], error) {
+func LoadRandomizedRpTreeIndex[T linalg.Number, U comparable](r io.Reader, opts linalg.LinAlgOptions) (*bspTreeIndex[T, U, rpCutPlane[T, U]], error) {
 	gob.Register(rpCutPlane[T, U]{})
 	index, err := loadIndex[bspTreeIndex[T, U, rpCutPlane[T, U]]](r)
 	if err != nil {
 		return nil, err
 	}
+	index.env = linalg.NewLinAlg[T](opts)
 
 	return &index, nil
 }

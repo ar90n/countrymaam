@@ -45,10 +45,10 @@ func readFeatures(dim uint) ([][]uint8, error) {
 
 func main() {
 	dim := uint(64)
-	env := linalg.NewLinAlgUint8(linalg.LinAlgOptions{})
+	opts := linalg.LinAlgOptions{}
 	ctx := context.Background()
 	//index := countrymaam.NewKdTreeIndex[uint8, int](dim, 8, env)
-	index := countrymaam.NewRandomizedKdTreeIndex[uint8, int](dim, 8, 8, env)
+	index := countrymaam.NewRandomizedKdTreeIndex[uint8, int](dim, 8, 8, opts)
 	//index := countrymaam.NewRandomizedRpTreeIndex[uint8, int](dim, 8, 8, env)
 	//index := countrymaam.NewKdTreeIndex[uint8, int](dim, 8, env)
 

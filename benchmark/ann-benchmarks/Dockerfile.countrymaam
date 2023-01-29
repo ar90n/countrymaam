@@ -1,6 +1,2 @@
-FROM golang:1.20 as builder
-
-RUN go install github.com/ar90n/countrymaam/cmd/countrymaam@latest
-
 FROM ann-benchmarks
-COPY --from=builder /go/bin/countrymaam /usr/local/bin
+COPY bin/countrymaam /usr/local/bin

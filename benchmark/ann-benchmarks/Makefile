@@ -1,10 +1,15 @@
 .ONESHELL:
 POETRY=poetry
+GO=go
 PARALLELISM=1
 
 .PHONY: setup benchmark flann annoy countrymaam-kd countrymaam-rp
 
-setup:
+build:
+	$(GO) build -o bin/countrymaam ../../cmd/countrymaam/main.go
+	docker build -t ann-benchmarks-countrymaam -f Dockerfile.countrymaam .
+
+setup: build
 	cd ann-benchmarks
 	cp ../countrymaam.py ./ann_benchmarks/algorithms
 	cp ../Dockerfile.countrymaam ./install

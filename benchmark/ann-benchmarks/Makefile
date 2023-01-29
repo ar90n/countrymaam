@@ -7,7 +7,7 @@ PARALLELISM=1
 setup:
 	cd ann-benchmarks
 	cp ../countrymaam.py ./ann_benchmarks/algorithms
-	cp ../Docker.countrymaam ./install
+	cp ../Dockerfile.countrymaam ./install
 	patch -N < ../patch_algos.yaml
 	$(POETRY) init --python '>= 3.8, < 3.11' -n
 	$(POETRY) add $$(cat requirements.txt | sed 's/=.*//g')

@@ -2,7 +2,7 @@
 POETRY=poetry
 PARALLELISM=1
 
-.PHONY: setup benchmark flann annoy countrymaam-kd countrymaam-rp test
+.PHONY: setup benchmark flann annoy countrymaam-kd countrymaam-rp
 
 setup:
 	cd ann-benchmarks

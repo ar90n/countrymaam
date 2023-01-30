@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"runtime/pprof"
 
 	"github.com/ar90n/countrymaam"
 	"github.com/ar90n/countrymaam/linalg"
@@ -104,6 +105,20 @@ func trainAction(c *cli.Context) error {
 	leafSize := c.Uint("leaf-size")
 	outputName := c.String("output")
 	nTrees := c.Uint("tree-num")
+	profileOutputName := c.String("profile-output")
+
+	if profileOutputName != "" {
+		f, err := os.Create(profileOutputName)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		if err := pprof.StartCPUProfile(f); err != nil {
+			return err
+		}
+		defer pprof.StopCPUProfile()
+	}
 
 	ctx := context.Background()
 	opts := linalg.LinAlgOptions{UseAVX2: true}
@@ -151,9 +166,23 @@ func predictAction(c *cli.Context) error {
 	nDim := c.Uint("dim")
 	indexName := c.String("index")
 	inputName := c.String("input")
+	profileOutputName := c.String("profile-output")
+
+	if profileOutputName != "" {
+		f, err := os.Create(profileOutputName)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		if err := pprof.StartCPUProfile(f); err != nil {
+			return err
+		}
+		defer pprof.StopCPUProfile()
+	}
 
 	ctx := context.Background()
-	opts := linalg.LinAlgOptions{UseAVX2: true}
+	opts := linalg.LinAlgOptions{UseAVX2: false}
 	index, err := loadIndex(indexName, inputName, opts)
 	if err != nil {
 		return err
@@ -222,6 +251,11 @@ func main() {
 						Value: "index.bin",
 						Usage: "output file",
 					},
+					&cli.StringFlag{
+						Name:  "profile-output",
+						Value: "cpu.pprof",
+						Usage: "profile output file",
+					},
 				},
 			},
 			{
@@ -244,6 +278,11 @@ func main() {
 						Name:  "input",
 						Value: "index.bin",
 						Usage: "index file",
+					},
+					&cli.StringFlag{
+						Name:  "profile-output",
+						Value: "cpu.pprof",
+						Usage: "profile output file",
 					},
 				},
 			},

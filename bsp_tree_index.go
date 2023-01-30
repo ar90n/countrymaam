@@ -222,7 +222,7 @@ func (bsp bspTreeIndex[T, U, C]) Save(w io.Writer) error {
 }
 
 func searchNode[T linalg.Number, U comparable](ctx context.Context, root *treeNode[T, U], query []T, env linalg.Env[T]) <-chan collection.WithPriority[*treeNode[T, U]] {
-	outputStream := make(chan collection.WithPriority[*treeNode[T, U]])
+	outputStream := make(chan collection.WithPriority[*treeNode[T, U]], 8)
 	go func() {
 		defer close(outputStream)
 

@@ -3,8 +3,22 @@
 name: countrymaam
 
 param_index:
-  - n_trees: 200
+  - n_trees: 16
+    index: rkd-tree
+    leaf_size: 8
+    use_profile: false
   - n_trees: 400
+    index: rkd-tree
+    leaf_size: 8
+    use_profile: false
+  - n_trees: 200
+    index: rrp-tree
+    leaf_size: 8
+    use_profile: false
+  - n_trees: 400
+    index: rrp-tree
+    leaf_size: 8
+    use_profile: false
 
 param_query:
   search_k:

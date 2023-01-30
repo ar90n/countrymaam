@@ -29,11 +29,14 @@ class Countrymaam(BaseANN):
         self._n_trees = None
         self._leaf_size = None
         self._pipe = None
+        self._use_profile = None
+        self._unique_id = "".join(random.choices(string.ascii_lowercase, k=16))
 
     def set_index_param(self, param):
         self._index = param.get("index", "rkd-tree")
         self._n_trees = param.get("n_trees", 8)
         self._leaf_size = param.get("leaf_size", 8)
+        self._use_profile = param.get("use_profile", False)
 
     def has_train(self):
         return False
@@ -42,8 +45,8 @@ class Countrymaam(BaseANN):
         vecs = vecs.astype(np.float32)
         D = len(vecs[0])
 
-        suffix = "".join(random.choices(string.ascii_lowercase, k=16))
-        index_file_path = f"index_{suffix}_{os.getpid()}.bin"
+        index_file_path = f"index_{self._unique_id}_{os.getpid()}.bin"
+        profile_file_path = f"/tmp/cpu_train_{self._index}_{self._leaf_size}_{self._n_trees}_{self._unique_id}.pprof" if self._use_profile else ""
         p = subprocess.Popen([
             *get_countrymaam_launch_cmd(),
             "train",
@@ -51,7 +54,8 @@ class Countrymaam(BaseANN):
             "--index", self._index,
             "--leaf-size", str(self._leaf_size),
             "--tree-num", str(self._n_trees),
-       	    "--output", index_file_path
+       	    "--output", index_file_path,
+            "--profile-output", profile_file_path
         ], stdin=subprocess.PIPE)
         p.stdin.write(struct.pack(f"={vecs.size}f", *np.ravel(vecs)))
         p.communicate()
@@ -80,12 +84,14 @@ class Countrymaam(BaseANN):
         pass
 
     def read(self, path, D):
+        profile_file_path = f"/tmp/cpu_predict_{self._index}_{self._leaf_size}_{self._n_trees}_{self._unique_id}.pprof" if self._use_profile else ""
         self._pipe = subprocess.Popen([
             *get_countrymaam_launch_cmd(),
             "predict",
             "--dim", str(D),
             "--index", self._index,
-       	    "--input", path
+       	    "--input", path,
+            "--profile-output", profile_file_path
         ], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
     def stringify_index_param(self, param):

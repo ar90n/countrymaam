@@ -54,7 +54,12 @@ func newLinAlgF32(options LinAlgOptions) interface{} {
 
 func newLinAlgUint8(options LinAlgOptions) interface{} {
 	if options.UseAVX2 {
-		panic("AVX2 not implemented yet")
+		return Env[uint8]{
+			SqL2:        asm.SqL2Uint8AVX2,
+			SqL2WithF32: sqL2[uint8, float32],
+			Dot:         asm.DotUint8AVX2,
+			DotWithF32:  dot[uint8, float32],
+		}
 	}
 
 	return Env[uint8]{

@@ -15,30 +15,30 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-type Query struct {
-	Feature       []float32
+type Query[T linalg.Number] struct {
+	Feature       []T
 	Neighbors     uint
 	MaxCandidates uint
 }
 
-func createIndex(index string, nDim uint, leafSize uint, nTrees uint, opts linalg.LinAlgOptions) (countrymaam.Index[float32, int], error) {
+func createIndex[T linalg.Number, U comparable](index string, nDim uint, leafSize uint, nTrees uint, opts linalg.LinAlgOptions) (countrymaam.Index[T, U], error) {
 	switch index {
 	case "flat":
-		return countrymaam.NewFlatIndex[float32, int](nDim, opts), nil
+		return countrymaam.NewFlatIndex[T, U](nDim, opts), nil
 	case "kd-tree":
-		return countrymaam.NewKdTreeIndex[float32, int](nDim, leafSize, opts), nil
+		return countrymaam.NewKdTreeIndex[T, U](nDim, leafSize, opts), nil
 	case "rkd-tree":
-		return countrymaam.NewRandomizedKdTreeIndex[float32, int](nDim, leafSize, nTrees, opts), nil
+		return countrymaam.NewRandomizedKdTreeIndex[T, U](nDim, leafSize, nTrees, opts), nil
 	case "rp-tree":
-		return countrymaam.NewRpTreeIndex[float32, int](nDim, leafSize, opts), nil
+		return countrymaam.NewRpTreeIndex[T, U](nDim, leafSize, opts), nil
 	case "rrp-tree":
-		return countrymaam.NewRandomizedRpTreeIndex[float32, int](nDim, leafSize, nTrees, opts), nil
+		return countrymaam.NewRandomizedRpTreeIndex[T, U](nDim, leafSize, nTrees, opts), nil
 	default:
 		return nil, fmt.Errorf("unknown index name: %s", index)
 	}
 }
 
-func loadIndex(index string, inputPath string, opts linalg.LinAlgOptions) (countrymaam.Index[float32, int], error) {
+func loadIndex[T linalg.Number, U comparable](index string, inputPath string, opts linalg.LinAlgOptions) (countrymaam.Index[T, U], error) {
 	file, err := os.Open(inputPath)
 	if err != nil {
 		return nil, err
@@ -47,24 +47,24 @@ func loadIndex(index string, inputPath string, opts linalg.LinAlgOptions) (count
 
 	switch index {
 	case "flat":
-		return countrymaam.LoadFlatIndex[float32, int](file, opts)
+		return countrymaam.LoadFlatIndex[T, U](file, opts)
 	case "kd-tree":
-		return countrymaam.LoadKdTreeIndex[float32, int](file, opts)
+		return countrymaam.LoadKdTreeIndex[T, U](file, opts)
 	case "rkd-tree":
-		return countrymaam.LoadRandomizedKdTreeIndex[float32, int](file, opts)
+		return countrymaam.LoadRandomizedKdTreeIndex[T, U](file, opts)
 	case "rp-tree":
-		return countrymaam.LoadRpTreeIndex[float32, int](file, opts)
+		return countrymaam.LoadRpTreeIndex[T, U](file, opts)
 	case "rrp-tree":
-		return countrymaam.LoadRandomizedRpTreeIndex[float32, int](file, opts)
+		return countrymaam.LoadRandomizedRpTreeIndex[T, U](file, opts)
 	default:
 		return nil, fmt.Errorf("unknown index name: %s", index)
 	}
 }
 
-func readFeature(r io.Reader, nDim uint) ([]float32, error) {
-	feature := make([]float32, nDim)
+func readFeature[T linalg.Number](r io.Reader, nDim uint) ([]T, error) {
+	feature := make([]T, nDim)
 	for j := uint(0); j < nDim; j++ {
-		var v float32
+		var v T
 		err := binary.Read(r, binary.LittleEndian, &v)
 		if err != nil {
 			return nil, err
@@ -75,23 +75,23 @@ func readFeature(r io.Reader, nDim uint) ([]float32, error) {
 	return feature, nil
 }
 
-func readQuery(r io.Reader, nDim uint) (Query, error) {
+func readQuery[T linalg.Number](r io.Reader, nDim uint) (Query[T], error) {
 	var maxCandidates int32
 	if err := binary.Read(r, binary.LittleEndian, &maxCandidates); err != nil {
-		return Query{}, err
+		return Query[T]{}, err
 	}
 
 	var neighbors int32
 	if err := binary.Read(r, binary.LittleEndian, &neighbors); err != nil {
-		return Query{}, err
+		return Query[T]{}, err
 	}
 
-	feature, err := readFeature(r, nDim)
+	feature, err := readFeature[T](r, nDim)
 	if err != nil {
-		return Query{}, err
+		return Query[T]{}, err
 	}
 
-	query := Query{
+	query := Query[T]{
 		Feature:       feature,
 		Neighbors:     uint(neighbors),
 		MaxCandidates: uint(maxCandidates),
@@ -100,6 +100,7 @@ func readQuery(r io.Reader, nDim uint) (Query, error) {
 }
 
 func trainAction(c *cli.Context) error {
+	dtype := c.String("dtype")
 	nDim := c.Uint("dim")
 	indexName := c.String("index")
 	leafSize := c.Uint("leaf-size")
@@ -107,6 +108,17 @@ func trainAction(c *cli.Context) error {
 	nTrees := c.Uint("tree-num")
 	profileOutputName := c.String("profile-output")
 
+	switch dtype {
+	case "float32":
+		return train[float32](nDim, indexName, leafSize, outputName, nTrees, profileOutputName)
+	case "uint8":
+		return train[uint8](nDim, indexName, leafSize, outputName, nTrees, profileOutputName)
+	default:
+		return fmt.Errorf("unknown dtype: %s", dtype)
+	}
+}
+
+func train[T linalg.Number](nDim uint, indexName string, leafSize uint, outputName string, nTrees uint, profileOutputName string) error {
 	if profileOutputName != "" {
 		f, err := os.Create(profileOutputName)
 		if err != nil {
@@ -122,7 +134,7 @@ func trainAction(c *cli.Context) error {
 
 	ctx := context.Background()
 	opts := linalg.LinAlgOptions{UseAVX2: true}
-	index, err := createIndex(indexName, nDim, leafSize, nTrees, opts)
+	index, err := createIndex[T, int](indexName, nDim, leafSize, nTrees, opts)
 	if err != nil {
 		return err
 	}
@@ -131,7 +143,7 @@ func trainAction(c *cli.Context) error {
 	r := bufio.NewReader(os.Stdin)
 Loop:
 	for i := 0; ; i++ {
-		feature, err := readFeature(r, nDim)
+		feature, err := readFeature[T](r, nDim)
 		if err == io.EOF {
 			break Loop
 		}
@@ -163,11 +175,24 @@ Loop:
 }
 
 func predictAction(c *cli.Context) error {
+	dtype := c.String("dtype")
 	nDim := c.Uint("dim")
 	indexName := c.String("index")
 	inputName := c.String("input")
 	profileOutputName := c.String("profile-output")
 
+	switch dtype {
+	case "float32":
+		return predict[float32](nDim, indexName, inputName, profileOutputName)
+	case "uint8":
+		return predict[uint8](nDim, indexName, inputName, profileOutputName)
+	default:
+		return fmt.Errorf("unknown dtype: %s", dtype)
+	}
+
+}
+
+func predict[T linalg.Number](nDim uint, indexName string, inputName string, profileOutputName string) error {
 	if profileOutputName != "" {
 		f, err := os.Create(profileOutputName)
 		if err != nil {
@@ -182,8 +207,8 @@ func predictAction(c *cli.Context) error {
 	}
 
 	ctx := context.Background()
-	opts := linalg.LinAlgOptions{UseAVX2: false}
-	index, err := loadIndex(indexName, inputName, opts)
+	opts := linalg.LinAlgOptions{UseAVX2: true}
+	index, err := loadIndex[float32, int](indexName, inputName, opts)
 	if err != nil {
 		return err
 	}
@@ -191,7 +216,7 @@ func predictAction(c *cli.Context) error {
 	r := bufio.NewReader(os.Stdin)
 Loop:
 	for {
-		query, err := readQuery(r, nDim)
+		query, err := readQuery[float32](r, nDim)
 		if err == io.EOF {
 			break Loop
 		}
@@ -232,9 +257,14 @@ func main() {
 						Usage: "dimension of feature",
 					},
 					&cli.StringFlag{
+						Name:  "dtype",
+						Value: "float32",
+						Usage: "data type",
+					},
+					&cli.StringFlag{
 						Name:  "index",
 						Value: "flat",
-						Usage: "dimension of feature",
+						Usage: "index type",
 					},
 					&cli.UintFlag{
 						Name:  "leaf-size",
@@ -270,9 +300,14 @@ func main() {
 						Usage: "dimension of feature",
 					},
 					&cli.StringFlag{
+						Name:  "dtype",
+						Value: "float32",
+						Usage: "data type",
+					},
+					&cli.StringFlag{
 						Name:  "index",
 						Value: "flat",
-						Usage: "dimension of feature",
+						Usage: "index type",
 					},
 					&cli.StringFlag{
 						Name:  "input",

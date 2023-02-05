@@ -84,7 +84,11 @@ func (fi flatIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-chan C
 			candidates.Push(item.Item, item.Priority)
 		}
 
-		for item := range candidates.PopWithPriority2(ctx) {
+		for 0 < candidates.Len() {
+			item, err := candidates.PopWithPriority()
+			if err != nil {
+				return
+			}
 			select {
 			case <-ctx.Done():
 				return

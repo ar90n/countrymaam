@@ -96,22 +96,3 @@ func (pq *PriorityQueue[T]) Peek(n int) (ret T, _ error) {
 func (pq *PriorityQueue[T]) Len() int {
 	return pq.priorityQueue.Len()
 }
-
-func (pq *PriorityQueue[T]) PopWithPriority2(ctx context.Context) <-chan WithPriority[T] {
-	ch := make(chan WithPriority[T])
-	go func() {
-		defer close(ch)
-		for {
-			nodeWithPriority, err := pq.PopWithPriority()
-			if err != nil {
-				return
-			}
-			select {
-			case <-ctx.Done():
-				return
-			case ch <- nodeWithPriority:
-			}
-		}
-	}()
-	return ch
-}

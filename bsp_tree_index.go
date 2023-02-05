@@ -23,27 +23,27 @@ type treeNode[T linalg.Number, U comparable] struct {
 	CutPlane CutPlane[T, U]
 	Begin    uint
 	End      uint
-	Left     *treeNode[T, U]
-	Right    *treeNode[T, U]
+	Left     uint
+	Right    uint
 }
 
 type treeRoot[T linalg.Number, U comparable] struct {
 	Indice []int
-	Node   *treeNode[T, U]
+	Nodes  []treeNode[T, U]
 }
 
 type bspTreeIndex[T linalg.Number, U comparable, C CutPlane[T, U]] struct {
 	Dim      uint
 	Pool     []treeElement[T, U]
-	Roots    []*treeRoot[T, U]
+	Roots    []treeRoot[T, U]
 	LeafSize uint
 	env      linalg.Env[T]
 	nTrees   uint
 }
 
 type queueItem[T linalg.Number, U comparable] struct {
-	Root *treeRoot[T, U]
-	Node *treeNode[T, U]
+	Root uint
+	Node uint
 }
 
 type Result[T any] struct {
@@ -61,37 +61,47 @@ func (bsp *bspTreeIndex[T, U, C]) Add(feature []T, item U) {
 	bsp.ClearIndex()
 }
 
-func (bsp *bspTreeIndex[T, U, C]) buildRoot(ctx context.Context) (*treeRoot[T, U], error) {
+func (bsp *bspTreeIndex[T, U, C]) buildRoot(ctx context.Context, id uint) (treeRoot[T, U], error) {
 	indice := pipeline.ToSlice(ctx, pipeline.Seq(ctx, uint(len(bsp.Pool))))
 	rand.Shuffle(len(indice), func(i, j int) { indice[i], indice[j] = indice[j], indice[i] })
 
-	node, err := bsp.buildTree(ctx, indice, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	return &treeRoot[T, U]{
+	bsp.Roots[id] = treeRoot[T, U]{
 		Indice: indice,
-		Node:   node,
-	}, nil
+		Nodes: []treeNode[T, U]{
+			{
+				Begin: 0,
+				End:   uint(len(indice)),
+			},
+		},
+	}
+	node, err := bsp.buildTree(ctx, indice, 0, id)
+	if err != nil {
+		return treeRoot[T, U]{}, err
+	}
+	bsp.Roots[id].Nodes[0] = bsp.Roots[id].Nodes[node]
+
+	return bsp.Roots[id], nil
 }
 
-func (bsp *bspTreeIndex[T, U, C]) buildTree(ctx context.Context, indice []int, offset uint) (*treeNode[T, U], error) {
+func (bsp *bspTreeIndex[T, U, C]) buildTree(ctx context.Context, indice []int, offset uint, id uint) (uint, error) {
 	nElements := uint(len(indice))
 	if nElements == 0 {
-		return nil, nil
+		return 0, nil
 	}
 
 	if nElements <= bsp.LeafSize {
-		return &treeNode[T, U]{
+		node := treeNode[T, U]{
 			Begin: offset,
 			End:   offset + nElements,
-		}, nil
+		}
+		nNodes := uint(len(bsp.Roots[id].Nodes))
+		bsp.Roots[id].Nodes = append(bsp.Roots[id].Nodes, node)
+		return nNodes, nil
 	}
 
 	cutPlane, err := (*new(C)).Construct(bsp.Pool, indice, bsp.env)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
 	mid := collection.Partition(indice, func(i int) bool {
@@ -101,23 +111,26 @@ func (bsp *bspTreeIndex[T, U, C]) buildTree(ctx context.Context, indice []int, o
 		mid = uint(len(indice)) / 2
 	}
 
-	left, err := bsp.buildTree(ctx, indice[:mid], offset)
+	left, err := bsp.buildTree(ctx, indice[:mid], offset, id)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
-	right, err := bsp.buildTree(ctx, indice[mid:], offset+mid)
+	right, err := bsp.buildTree(ctx, indice[mid:], offset+mid, id)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
-	return &treeNode[T, U]{
+	node := treeNode[T, U]{
 		Begin:    offset,
 		End:      offset + nElements,
 		Left:     left,
 		Right:    right,
 		CutPlane: cutPlane,
-	}, nil
+	}
+	nNodes := uint(len(bsp.Roots[id].Nodes))
+	bsp.Roots[id].Nodes = append(bsp.Roots[id].Nodes, node)
+	return nNodes, nil
 }
 
 func (bsp *bspTreeIndex[T, U, C]) Build(ctx context.Context) error {
@@ -126,25 +139,29 @@ func (bsp *bspTreeIndex[T, U, C]) Build(ctx context.Context) error {
 	}
 
 	taskStream := pipeline.Seq(ctx, bsp.nTrees)
-	rootStream := make(chan Result[*treeRoot[T, U]])
+	rootStream := make(chan Result[treeRoot[T, U]])
 	defer close(rootStream)
+
+	bsp.Roots = make([]treeRoot[T, U], bsp.nTrees)
 	//for i := 0; i < runtime.NumCPU(); i++ {
 	for i := 0; i < 1; i++ {
 		go func() {
-			for range taskStream {
-				root, err := bsp.buildRoot(ctx)
-				rootStream <- Result[*treeRoot[T, U]]{Value: root, Error: err}
+			for t := range taskStream {
+				root, err := bsp.buildRoot(ctx, uint(t))
+				rootStream <- Result[treeRoot[T, U]]{Value: root, Error: err}
 			}
 		}()
 	}
 
-	for uint(len(bsp.Roots)) < bsp.nTrees {
+	i := 0
+	for uint(i) < bsp.nTrees {
 		ret := <-rootStream
 		if ret.Error != nil {
 			return ret.Error
 		}
 
-		bsp.Roots = append(bsp.Roots, ret.Value)
+		bsp.Roots[i] = ret.Value
+		i++
 	}
 	return nil
 }
@@ -200,7 +217,7 @@ func (bsp *bspTreeIndex[T, U, C]) SearchChannel(ctx context.Context, query []T) 
 		maxCandidates := 64
 		queue := collection.NewPriorityQueue[queueItem[T, U]](maxCandidates)
 		for i := range bsp.Roots {
-			queue.Push(queueItem[T, U]{Root: bsp.Roots[i], Node: bsp.Roots[i].Node}, -math.MaxFloat64)
+			queue.Push(queueItem[T, U]{Root: uint(i), Node: 0}, -math.MaxFloat64)
 		}
 
 		for 0 < queue.Len() {
@@ -209,15 +226,11 @@ func (bsp *bspTreeIndex[T, U, C]) SearchChannel(ctx context.Context, query []T) 
 				continue
 			}
 
-			node := nodeWithPriority.Item.Node
-			if node == nil {
-				continue
-			}
-
-			root := nodeWithPriority.Item.Root
-			if node.Left == nil && node.Right == nil {
+			ri := nodeWithPriority.Item.Root
+			node := bsp.Roots[ri].Nodes[nodeWithPriority.Item.Node]
+			if node.Left == 0 && node.Right == 0 {
 				for i := node.Begin; i < node.End; i++ {
-					elem := bsp.Pool[root.Indice[i]]
+					elem := bsp.Pool[bsp.Roots[ri].Indice[i]]
 					distance := float64(bsp.env.SqL2(query, elem.Feature))
 					select {
 					case <-ctx.Done():
@@ -228,14 +241,19 @@ func (bsp *bspTreeIndex[T, U, C]) SearchChannel(ctx context.Context, query []T) 
 					}:
 					}
 				}
-			} else {
-				worstPriority := nodeWithPriority.Priority
-				sqDistanceToCutPlane := node.CutPlane.Distance(query, bsp.env)
-				rightPriority := linalg.Max(-sqDistanceToCutPlane, worstPriority)
-				queue.Push(queueItem[T, U]{Root: root, Node: node.Right}, rightPriority)
+				continue
+			}
 
+			worstPriority := nodeWithPriority.Priority
+			sqDistanceToCutPlane := node.CutPlane.Distance(query, bsp.env)
+			if 0 < node.Right {
+				rightPriority := linalg.Max(-sqDistanceToCutPlane, worstPriority)
+				queue.Push(queueItem[T, U]{Root: ri, Node: node.Right}, rightPriority)
+			}
+
+			if 0 < node.Left {
 				leftPriority := linalg.Max(sqDistanceToCutPlane, worstPriority)
-				queue.Push(queueItem[T, U]{Root: root, Node: node.Left}, leftPriority)
+				queue.Push(queueItem[T, U]{Root: ri, Node: node.Left}, leftPriority)
 			}
 		}
 

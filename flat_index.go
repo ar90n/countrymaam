@@ -59,7 +59,7 @@ func (fi flatIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-chan C
 				defer wg.Done()
 
 				for i := c.Begin; i < c.End; i++ {
-					distance := fi.env.SqL2(query, fi.Features[i])
+					distance := float64(fi.env.SqL2(query, fi.Features[i]))
 					select {
 					case <-ctx.Done():
 						return

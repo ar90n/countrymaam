@@ -112,7 +112,7 @@ func (cp randomizedKdCutPlane[T, U]) Construct(elements []treeElement[T, U], ind
 			Axis:  uint(i),
 			Value: mean,
 		}
-		queue.Push(cutPlane, -float32(variance))
+		queue.Push(cutPlane, -float64(variance))
 	}
 
 	// Randomly select one of the best candidates.

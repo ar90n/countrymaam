@@ -10,7 +10,7 @@ import (
 	. "github.com/mmcloughlin/avo/reg"
 )
 
-var unroll_dot_f32_avx2 = 6
+var unroll_dot_f32_avx2 = 1
 
 func main() {
 	TEXT("DotF32AVX2", NOSPLIT, "func(x, y []float32) float32")

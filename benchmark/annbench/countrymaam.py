@@ -42,7 +42,11 @@ class Countrymaam(BaseANN):
         return False
 
     def add(self, vecs):
-        vecs = vecs.astype(np.float32)
+        if vecs.dtype != np.uint8:
+            vecs = vecs.astype(np.float32)
+        unit_char = "f" if vecs.dtype == np.float32 else "B"
+        self._dtype = "float32" if vecs.dtype == np.float32 else "uint8"
+
         D = len(vecs[0])
 
         index_file_path = f"index_{self._unique_id}_{os.getpid()}.bin"
@@ -51,13 +55,14 @@ class Countrymaam(BaseANN):
             *get_countrymaam_launch_cmd(),
             "train",
             "--dim", str(D),
+            "--dtype", self._dtype,
             "--index", self._index,
             "--leaf-size", str(self._leaf_size),
             "--tree-num", str(self._n_trees),
        	    "--output", index_file_path,
             "--profile-output", profile_file_path
         ], stdin=subprocess.PIPE)
-        p.stdin.write(struct.pack(f"={vecs.size}f", *np.ravel(vecs)))
+        p.stdin.write(struct.pack(f"={vecs.size}{unit_char}", *np.ravel(vecs)))
         p.communicate()
         p.stdin.close()
 
@@ -66,10 +71,12 @@ class Countrymaam(BaseANN):
     def query(self, vecs, topk, param):
         res = []
         for v in vecs:
-            v = v.astype(np.float32)
+            if vecs.dtype != np.uint8:
+                vecs = vecs.astype(np.float32)
+            unit_char = "f" if vecs.dtype == np.float32 else "B"
             self._pipe.stdin.write(struct.pack(f"=i", int(param["search_k"])))
             self._pipe.stdin.write(struct.pack(f"=i", int(topk)))
-            self._pipe.stdin.write(struct.pack(f"={v.size}f", *v))
+            self._pipe.stdin.write(struct.pack(f"={v.size}{unit_char}", *v))
             self._pipe.stdin.flush()
 
             rn = struct.unpack("=i", self._pipe.stdout.read(4))[0]
@@ -89,6 +96,7 @@ class Countrymaam(BaseANN):
             *get_countrymaam_launch_cmd(),
             "predict",
             "--dim", str(D),
+            "--dtype", self._dtype,
             "--index", self._index,
        	    "--input", path,
             "--profile-output", profile_file_path

@@ -163,11 +163,25 @@ func (c Candidates[U]) Less(i, j int) bool {
 
 func (bsp *bspTreeIndex[T, U, C]) Search(ctx context.Context, query []T, n uint, maxCandidates uint) ([]Candidate[U], error) {
 	ch := bsp.SearchChannel(ctx, query)
-	ch = pipeline.Take(ctx, maxCandidates, ch)
-	ch = pipeline.Unique(ctx, ch)
-	items := pipeline.ToSlice(ctx, ch)
-	sort.Sort(Candidates[U](items))
 
+	items := make([]Candidate[U], 0, maxCandidates)
+	founds := make(map[U]struct{}, maxCandidates)
+	i := uint(0)
+	for item := range ch {
+		if maxCandidates < i {
+			break
+		}
+		i++
+
+		if _, ok := founds[item.Item]; ok {
+			continue
+		}
+		founds[item.Item] = struct{}{}
+
+		items = append(items, item)
+	}
+
+	sort.Sort(Candidates[U](items))
 	if uint(len(items)) < n {
 		n = uint(len(items))
 	}

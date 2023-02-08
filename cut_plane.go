@@ -25,12 +25,7 @@ func (cp kdCutPlane[T, U]) Evaluate(feature []T, env linalg.Env[T]) bool {
 }
 
 func (cp kdCutPlane[T, U]) Distance(feature []T, env linalg.Env[T]) float64 {
-	diff := float64(feature[cp.Axis]) - cp.Value
-	sqDist := diff * diff
-	if diff < 0.0 {
-		sqDist = -sqDist
-	}
-	return sqDist
+	return float64(feature[cp.Axis]) - cp.Value
 }
 
 func (cp kdCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int, env linalg.Env[T]) (CutPlane[T, U], error) {
@@ -76,11 +71,7 @@ func (cp randomizedKdCutPlane[T, U]) Evaluate(feature []T, env linalg.Env[T]) bo
 
 func (cp randomizedKdCutPlane[T, U]) Distance(feature []T, env linalg.Env[T]) float64 {
 	diff := float64(feature[cp.Axis] - cp.Value)
-	sqDist := diff * diff
-	if diff < 0.0 {
-		sqDist = -sqDist
-	}
-	return sqDist
+	return diff
 }
 
 func (cp randomizedKdCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int, env linalg.Env[T]) (CutPlane[T, U], error) {
@@ -134,13 +125,7 @@ func (cp rpCutPlane[T, U]) Evaluate(feature []T, env linalg.Env[T]) bool {
 }
 
 func (cp rpCutPlane[T, U]) Distance(feature []T, env linalg.Env[T]) float64 {
-	dot := cp.A + float64(env.DotWithF32(feature, cp.NormalVector))
-	sqDist := dot * dot
-	if dot < 0.0 {
-		sqDist = -sqDist
-	}
-
-	return sqDist
+	return cp.A + float64(env.DotWithF32(feature, cp.NormalVector))
 }
 
 func (cp rpCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int, env linalg.Env[T]) (CutPlane[T, U], error) {

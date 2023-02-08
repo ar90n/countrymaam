@@ -29,18 +29,25 @@ func (pq *priorityQueue[T]) Pop() WithPriority[T] {
 	return item
 }
 
+// derived from container/heap
+func (pq priorityQueue[T]) Init() {
+	// heapify
+	n := pq.Len()
+	for i := n/2 - 1; i >= 0; i-- {
+		pq.down(i, n)
+	}
+}
+
 func (pq priorityQueue[T]) less(i, j int) bool {
 	return pq[i].Priority < pq[j].Priority
 }
 
 func (pq priorityQueue[T]) swap(i, j int) {
-	if i != j {
-		pq[i], pq[j] = pq[j], pq[i]
-	}
+	pq[i], pq[j] = pq[j], pq[i]
 }
 
 // derived from container/heap
-func (pq *priorityQueue[T]) up(j int) {
+func (pq priorityQueue[T]) up(j int) {
 	for {
 		i := (j - 1) / 2 // parent
 		if i == j || !pq.less(j, i) {
@@ -52,17 +59,15 @@ func (pq *priorityQueue[T]) up(j int) {
 }
 
 // derived from container/heap
-func (pq *priorityQueue[T]) down(i0, n int) bool {
+func (pq priorityQueue[T]) down(i0, n int) bool {
 	i := i0
 	for {
 		j1 := 2*i + 1
-		if j1 >= n || j1 < 0 { // j1 < 0 after int overflow
+		if n <= j1 || j1 < 0 { // j1 < 0 after int overflow
 			break
 		}
-		j := j1 // left child
-		if j2 := j1 + 1; j2 < n && pq.less(j2, j1) {
-			j = j2 // = 2*i + 2  // right child
-		}
+		j := pq.getLesserSibling(j1, n)
+
 		if !pq.less(j, i) {
 			break
 		}
@@ -72,6 +77,15 @@ func (pq *priorityQueue[T]) down(i0, n int) bool {
 	return i > i0
 }
 
+func (pq priorityQueue[T]) getLesserSibling(lIdx, n int) int {
+	ret := lIdx // left child
+	if rIdx := lIdx + 1; rIdx < n && pq.less(rIdx, lIdx) {
+		ret = rIdx // = 2*i + 2  // right child
+	}
+
+	return ret
+}
+
 type PriorityQueue[T any] struct {
 	priorityQueue[T]
 }
@@ -79,6 +93,14 @@ type PriorityQueue[T any] struct {
 func NewPriorityQueue[T any](capacity int) *PriorityQueue[T] {
 	return &PriorityQueue[T]{
 		priorityQueue: make(priorityQueue[T], 0, capacity),
+	}
+}
+
+func NewPriorityQueueFromSlice[T any](data []WithPriority[T]) *PriorityQueue[T] {
+	pq := priorityQueue[T](data)
+	pq.Init()
+	return &PriorityQueue[T]{
+		priorityQueue: pq,
 	}
 }
 
@@ -92,7 +114,7 @@ func (pq *PriorityQueue[T]) Push(item T, priority float64) {
 }
 
 func (pq *PriorityQueue[T]) PopWithPriority() (ret WithPriority[T], _ error) {
-	if pq.priorityQueue.Len() == 0 {
+	if pq.Len() == 0 {
 		return ret, errors.New("empty queue")
 	}
 	item := pq.priorityQueue.Pop()

@@ -36,19 +36,17 @@ func main() {
 	CMPQ(n, U32(blockitems))
 	JL(LabelRef("tail"))
 
-	// Load x.
 	xs := make([]VecVirtual, unroll_sq_l2_f32_avx2)
+	ys := make([]VecVirtual, unroll_sq_l2_f32_avx2)
 	for i := 0; i < unroll_sq_l2_f32_avx2; i++ {
 		xs[i] = YMM()
+		ys[i] = YMM()
 	}
 
 	for i := 0; i < unroll_sq_l2_f32_avx2; i++ {
 		VMOVUPS(x.Offset(32*i), xs[i])
-	}
-
-	// The actual square of difference.
-	for i := 0; i < unroll_sq_l2_f32_avx2; i++ {
-		VSUBPS(y.Offset(32*i), xs[i], xs[i])
+		VMOVUPS(y.Offset(32*i), ys[i])
+		VSUBPS(ys[i], xs[i], xs[i])
 		VFMADD231PS(xs[i], xs[i], acc[i])
 	}
 

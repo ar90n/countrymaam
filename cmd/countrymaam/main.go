@@ -208,7 +208,7 @@ func predict[T linalg.Number](nDim uint, indexName string, inputName string, pro
 
 	ctx := context.Background()
 	opts := linalg.LinAlgOptions{UseAVX2: true}
-	index, err := loadIndex[float32, int](indexName, inputName, opts)
+	index, err := loadIndex[T, int](indexName, inputName, opts)
 	if err != nil {
 		return err
 	}
@@ -216,7 +216,7 @@ func predict[T linalg.Number](nDim uint, indexName string, inputName string, pro
 	r := bufio.NewReader(os.Stdin)
 Loop:
 	for {
-		query, err := readQuery[float32](r, nDim)
+		query, err := readQuery[T](r, nDim)
 		if err == io.EOF {
 			break Loop
 		}

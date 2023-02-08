@@ -14,7 +14,8 @@ blockloop:
 	CMPQ        DX, $0x00000008
 	JL          tail
 	VMOVUPS     (AX), Y1
-	VFMADD231PS (CX), Y1, Y0
+	VMOVUPS     (CX), Y2
+	VFMADD231PS Y2, Y1, Y0
 	ADDQ        $0x00000020, AX
 	ADDQ        $0x00000020, CX
 	SUBQ        $0x00000008, DX

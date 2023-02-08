@@ -14,9 +14,10 @@ blockloop:
 	CMPQ         DX, $0x00000020
 	JL           tail
 	VMOVDQU      (AX), Y1
-	VPBROADCASTW one<>+0(SB), Y2
-	VPMADDUBSW   (CX), Y1, Y1
-	VPMADDWD     Y1, Y2, Y1
+	VMOVDQU      (CX), Y2
+	VPBROADCASTW one<>+0(SB), Y3
+	VPMADDUBSW   Y2, Y1, Y1
+	VPMADDWD     Y1, Y3, Y1
 	VCVTDQ2PS    Y1, Y1
 	VPADDUSB     Y1, Y0, Y0
 	ADDQ         $0x00000020, AX

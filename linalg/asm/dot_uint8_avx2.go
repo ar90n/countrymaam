@@ -37,21 +37,23 @@ func main() {
 	CMPQ(n, U32(blockitems))
 	JL(LabelRef("tail"))
 
-	// Load x.
 	xs := make([]VecVirtual, unroll_dot_uint8_avx2)
+	ys := make([]VecVirtual, unroll_dot_uint8_avx2)
 	for i := 0; i < unroll_dot_uint8_avx2; i++ {
 		xs[i] = YMM()
+		ys[i] = YMM()
 	}
 
 	for i := 0; i < unroll_dot_uint8_avx2; i++ {
 		VMOVDQU(x.Offset(32*i), xs[i])
+		VMOVDQU(y.Offset(32*i), ys[i])
 	}
 
 	// The actual FMA.
 	ones := YMM()
 	VPBROADCASTW(one, ones)
 	for i := 0; i < unroll_dot_uint8_avx2; i++ {
-		VPMADDUBSW(y.Offset(32*i), xs[i], xs[i])
+		VPMADDUBSW(ys[i], xs[i], xs[i])
 		VPMADDWD(xs[i], ones, xs[i])
 		VCVTDQ2PS(xs[i], xs[i])
 		VPADDUSB(xs[i], acc[i], acc[i])

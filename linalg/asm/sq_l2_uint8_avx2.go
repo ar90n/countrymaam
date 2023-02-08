@@ -37,7 +37,6 @@ func main() {
 	CMPQ(n, U32(blockitems))
 	JL(LabelRef("tail"))
 
-	// Load x.
 	xs := make([]VecVirtual, unroll_sql2_uint8_avx2)
 	ys := make([]VecVirtual, unroll_sql2_uint8_avx2)
 	for i := 0; i < unroll_sql2_uint8_avx2; i++ {
@@ -50,7 +49,6 @@ func main() {
 		VMOVDQU(y.Offset(32*i), ys[i])
 	}
 
-	// The actual FMA.
 	ones := YMM()
 	VPBROADCASTW(one, ones)
 	for i := 0; i < unroll_sql2_uint8_avx2; i++ {

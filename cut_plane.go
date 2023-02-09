@@ -9,12 +9,20 @@ import (
 	"github.com/ar90n/countrymaam/linalg"
 )
 
+type CutPlaneOptions struct {
+	Features   uint
+	Candidates uint
+}
+
 type CutPlane[T linalg.Number, U comparable] interface {
 	Evaluate(feature []T, env linalg.Env[T]) bool
 	Distance(feature []T, env linalg.Env[T]) float64
-	Construct(elements []treeElement[T, U], indice []int, env linalg.Env[T]) (CutPlane[T, U], error)
+	Construct(elements []treeElement[T, U], indice []int, env linalg.Env[T], opts CutPlaneOptions) (CutPlane[T, U], error)
 }
 
+// kdCutPlane is a cut plane that is constructed by kdtree algorithm.
+// this is derived from flann library.
+// https://github.com/flann-lib/flann/blob/master/src/cpp/flann/algorithms/kdtree_index.h
 type kdCutPlane[T linalg.Number, U comparable] struct {
 	Axis  uint
 	Value float64
@@ -28,53 +36,7 @@ func (cp kdCutPlane[T, U]) Distance(feature []T, env linalg.Env[T]) float64 {
 	return float64(feature[cp.Axis]) - cp.Value
 }
 
-func (cp kdCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int, env linalg.Env[T]) (CutPlane[T, U], error) {
-	minValues := append([]T{}, elements[indice[0]].Feature...)
-	maxValues := append([]T{}, elements[indice[0]].Feature...)
-	for _, i := range indice {
-		element := elements[i]
-		for j, v := range element.Feature {
-			minValues[j] = linalg.Min(minValues[j], v)
-			maxValues[j] = linalg.Max(maxValues[j], v)
-		}
-	}
-	maxRange := maxValues[0] - minValues[0]
-	cutPlane := kdCutPlane[T, U]{
-		Axis:  uint(0),
-		Value: float64(linalg.Mid(maxValues[0], minValues[0])),
-	}
-	for i := uint(1); i < uint(len(minValues)); i++ {
-		diff := maxValues[i] - minValues[i]
-		if maxRange < diff {
-			maxRange = diff
-			cutPlane = kdCutPlane[T, U]{
-				Axis:  i,
-				Value: float64(linalg.Mid(maxValues[i], minValues[i])),
-			}
-		}
-	}
-
-	return &cutPlane, nil
-}
-
-// randomizedKdCutPlane is a cut plane that is constructed by kdtree algorithm.
-// this is derived from flann library.
-// https://github.com/flann-lib/flann/blob/master/src/cpp/flann/algorithms/kdtree_index.h
-type randomizedKdCutPlane[T linalg.Number, U comparable] struct {
-	Axis  uint
-	Value T
-}
-
-func (cp randomizedKdCutPlane[T, U]) Evaluate(feature []T, env linalg.Env[T]) bool {
-	return 0.0 <= cp.Distance(feature, env)
-}
-
-func (cp randomizedKdCutPlane[T, U]) Distance(feature []T, env linalg.Env[T]) float64 {
-	diff := float64(feature[cp.Axis] - cp.Value)
-	return diff
-}
-
-func (cp randomizedKdCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int, env linalg.Env[T]) (CutPlane[T, U], error) {
+func (cp kdCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int, env linalg.Env[T], opts CutPlaneOptions) (CutPlane[T, U], error) {
 	if len(indice) == 0 {
 		return nil, errors.New("elements is empty")
 	}
@@ -82,7 +44,10 @@ func (cp randomizedKdCutPlane[T, U]) Construct(elements []treeElement[T, U], ind
 	dim := len(elements[0].Feature)
 	accs := make([]float64, dim)
 	sqAccs := make([]float64, dim)
-	nSamples := linalg.Min(uint(len(indice)), 100)
+	nSamples := uint(len(indice))
+	if 0 < opts.Features && opts.Features < nSamples {
+		nSamples = opts.Features
+	}
 	for _, i := range indice[:nSamples] {
 		element := elements[i]
 		for j, v := range element.Feature {
@@ -107,8 +72,11 @@ func (cp randomizedKdCutPlane[T, U]) Construct(elements []treeElement[T, U], ind
 	}
 
 	// Randomly select one of the best candidates.
-	nCandidates := linalg.Min(5, queue.Len())
-	nSkip := rand.Intn(nCandidates) - 1
+	nCandidates := linalg.Min(int(opts.Candidates), queue.Len())
+	nSkip := 0
+	if 0 < nCandidates {
+		nSkip = rand.Intn(nCandidates) - 1
+	}
 	for i := 0; i < nSkip; i++ {
 		queue.Pop()
 	}
@@ -128,7 +96,7 @@ func (cp rpCutPlane[T, U]) Distance(feature []T, env linalg.Env[T]) float64 {
 	return cp.A + float64(env.DotWithF32(feature, cp.NormalVector))
 }
 
-func (cp rpCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int, env linalg.Env[T]) (CutPlane[T, U], error) {
+func (cp rpCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int, env linalg.Env[T], opts CutPlaneOptions) (CutPlane[T, U], error) {
 	if len(indice) == 0 {
 		return nil, errors.New("elements is empty")
 	}
@@ -139,7 +107,7 @@ func (cp rpCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int,
 		rhsIndex++
 	}
 
-	const maxIter = 32
+	const maxIter = 8
 	dim := len(elements[indice[lhsIndex]].Feature)
 	lhsCenter := make([]float32, dim)
 	rhsCenter := make([]float32, dim)

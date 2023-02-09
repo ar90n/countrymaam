@@ -47,10 +47,17 @@ func main() {
 	dim := uint(64)
 	opts := linalg.LinAlgOptions{}
 	ctx := context.Background()
-	//index := countrymaam.NewKdTreeIndex[uint8, int](dim, 8, env)
-	index := countrymaam.NewRandomizedKdTreeIndex[uint8, int](dim, 8, 8, opts)
-	//index := countrymaam.NewRandomizedRpTreeIndex[uint8, int](dim, 8, 8, env)
-	//index := countrymaam.NewKdTreeIndex[uint8, int](dim, 8, env)
+	index := countrymaam.NewKdTreeIndex[uint8, int](
+		countrymaam.TreeConfig{
+			CutPlaneOptions: countrymaam.CutPlaneOptions{
+				Features:   100,
+				Candidates: 5,
+			},
+			Dim:   dim,
+			Leafs: 8,
+			Trees: 8,
+		},
+		opts)
 
 	features, err := readFeatures(dim)
 	if err != nil {

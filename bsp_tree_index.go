@@ -293,41 +293,36 @@ func (bsp bspTreeIndex[T, U, C]) Save(w io.Writer) error {
 }
 
 func NewKdTreeIndex[T linalg.Number, U comparable](config TreeConfig, opts linalg.LinAlgOptions) *bspTreeIndex[T, U, kdCutPlane[T, U]] {
-	gob.Register(kdCutPlane[T, U]{})
-
-	env := linalg.NewLinAlg[T](opts)
-	return &bspTreeIndex[T, U, kdCutPlane[T, U]]{
-		config:   config,
-		Elements: make([]treeElement[T, U], 0),
-		env:      env,
-	}
+	return NewTreeIndex[T, U, kdCutPlane[T, U]](config, opts)
 }
 
 func LoadKdTreeIndex[T linalg.Number, U comparable](r io.Reader, opts linalg.LinAlgOptions) (*bspTreeIndex[T, U, kdCutPlane[T, U]], error) {
-	gob.Register(kdCutPlane[T, U]{})
-	index, err := loadIndex[bspTreeIndex[T, U, kdCutPlane[T, U]]](r)
-	if err != nil {
-		return nil, err
-	}
-	index.env = linalg.NewLinAlg[T](opts)
-
-	return &index, nil
+	return LoadTreeIndex[T, U, kdCutPlane[T, U]](r, opts)
 }
 
 func NewRpTreeIndex[T linalg.Number, U comparable](config TreeConfig, opts linalg.LinAlgOptions) *bspTreeIndex[T, U, rpCutPlane[T, U]] {
-	gob.Register(rpCutPlane[T, U]{})
+	return NewTreeIndex[T, U, rpCutPlane[T, U]](config, opts)
+}
+
+func LoadRpTreeIndex[T linalg.Number, U comparable](r io.Reader, opts linalg.LinAlgOptions) (*bspTreeIndex[T, U, rpCutPlane[T, U]], error) {
+	return LoadTreeIndex[T, U, rpCutPlane[T, U]](r, opts)
+}
+
+func NewTreeIndex[T linalg.Number, U comparable, C CutPlane[T, U]](config TreeConfig, opts linalg.LinAlgOptions) *bspTreeIndex[T, U, C] {
+	gob.Register(*new(C))
 
 	env := linalg.NewLinAlg[T](opts)
-	return &bspTreeIndex[T, U, rpCutPlane[T, U]]{
+	return &bspTreeIndex[T, U, C]{
 		config:   config,
 		Elements: make([]treeElement[T, U], 0),
 		env:      env,
 	}
 }
 
-func LoadRpTreeIndex[T linalg.Number, U comparable](r io.Reader, opts linalg.LinAlgOptions) (*bspTreeIndex[T, U, rpCutPlane[T, U]], error) {
-	gob.Register(rpCutPlane[T, U]{})
-	index, err := loadIndex[bspTreeIndex[T, U, rpCutPlane[T, U]]](r)
+func LoadTreeIndex[T linalg.Number, U comparable, C CutPlane[T, U]](r io.Reader, opts linalg.LinAlgOptions) (*bspTreeIndex[T, U, C], error) {
+	gob.Register(*new(C))
+
+	index, err := loadIndex[bspTreeIndex[T, U, C]](r)
 	if err != nil {
 		return nil, err
 	}

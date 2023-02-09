@@ -35,6 +35,7 @@ type treeRoot[T linalg.Number, U comparable] struct {
 }
 
 type TreeConfig struct {
+	CutPlaneOptions
 	Dim   uint
 	Leafs uint
 	Trees uint
@@ -96,7 +97,11 @@ func (bsp *bspTreeIndex[T, U, C]) buildTree(ctx context.Context, indice []int, o
 		return 0, nil
 	}
 
-	if nElements <= bsp.config.Leafs {
+	nLeafs := bsp.config.Leafs
+	if nLeafs == 0 {
+		nLeafs = 1
+	}
+	if nElements <= nLeafs {
 		node := treeNode[T, U]{
 			Begin: offset,
 			End:   offset + nElements,
@@ -106,7 +111,7 @@ func (bsp *bspTreeIndex[T, U, C]) buildTree(ctx context.Context, indice []int, o
 		return nNodes, nil
 	}
 
-	cutPlane, err := (*new(C)).Construct(bsp.Elements, indice, bsp.env)
+	cutPlane, err := (*new(C)).Construct(bsp.Elements, indice, bsp.env, bsp.config.CutPlaneOptions)
 	if err != nil {
 		return 0, err
 	}
@@ -145,12 +150,22 @@ func (bsp *bspTreeIndex[T, U, C]) Build(ctx context.Context) error {
 		return errors.New("empty pool")
 	}
 
-	taskStream := pipeline.Seq(ctx, bsp.config.Trees)
+	nTrees := bsp.config.Trees
+	if nTrees == 0 {
+		nTrees = 1
+	}
+
+	taskStream := pipeline.Seq(ctx, nTrees)
 	rootStream := make(chan result[treeRoot[T, U]])
 	defer close(rootStream)
 
-	bsp.Roots = make([]treeRoot[T, U], bsp.config.Trees)
-	for i := uint(0); i < bsp.config.Procs; i++ {
+	bsp.Roots = make([]treeRoot[T, U], nTrees)
+	nProcs := bsp.config.Procs
+	if nProcs == 0 {
+		//nProcs = uint(runtime.NumCPU())
+		nProcs = uint(1)
+	}
+	for i := uint(0); i < nProcs; i++ {
 		go func() {
 			for t := range taskStream {
 				root, err := bsp.buildRoot(ctx, uint(t))
@@ -160,7 +175,7 @@ func (bsp *bspTreeIndex[T, U, C]) Build(ctx context.Context) error {
 	}
 
 	i := 0
-	for uint(i) < bsp.config.Trees {
+	for uint(i) < nTrees {
 		ret := <-rootStream
 		if ret.Error != nil {
 			return ret.Error
@@ -277,19 +292,13 @@ func (bsp bspTreeIndex[T, U, C]) Save(w io.Writer) error {
 	return saveIndex(bsp, w)
 }
 
-func NewKdTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, opts linalg.LinAlgOptions) *bspTreeIndex[T, U, kdCutPlane[T, U]] {
+func NewKdTreeIndex[T linalg.Number, U comparable](config TreeConfig, opts linalg.LinAlgOptions) *bspTreeIndex[T, U, kdCutPlane[T, U]] {
 	gob.Register(kdCutPlane[T, U]{})
 
 	env := linalg.NewLinAlg[T](opts)
-	config := TreeConfig{
-		Dim:   dim,
-		Leafs: leafSize,
-		Trees: 1,
-		Procs: 1,
-	}
 	return &bspTreeIndex[T, U, kdCutPlane[T, U]]{
 		config:   config,
-		Elements: make([]treeElement[T, U], 0, 4096),
+		Elements: make([]treeElement[T, U], 0),
 		env:      env,
 	}
 }
@@ -305,16 +314,10 @@ func LoadKdTreeIndex[T linalg.Number, U comparable](r io.Reader, opts linalg.Lin
 	return &index, nil
 }
 
-func NewRpTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, opts linalg.LinAlgOptions) *bspTreeIndex[T, U, rpCutPlane[T, U]] {
+func NewRpTreeIndex[T linalg.Number, U comparable](config TreeConfig, opts linalg.LinAlgOptions) *bspTreeIndex[T, U, rpCutPlane[T, U]] {
 	gob.Register(rpCutPlane[T, U]{})
 
 	env := linalg.NewLinAlg[T](opts)
-	config := TreeConfig{
-		Dim:   dim,
-		Leafs: leafSize,
-		Trees: 1,
-		Procs: 1,
-	}
 	return &bspTreeIndex[T, U, rpCutPlane[T, U]]{
 		config:   config,
 		Elements: make([]treeElement[T, U], 0),
@@ -323,64 +326,6 @@ func NewRpTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, opts
 }
 
 func LoadRpTreeIndex[T linalg.Number, U comparable](r io.Reader, opts linalg.LinAlgOptions) (*bspTreeIndex[T, U, rpCutPlane[T, U]], error) {
-	gob.Register(rpCutPlane[T, U]{})
-	index, err := loadIndex[bspTreeIndex[T, U, rpCutPlane[T, U]]](r)
-	if err != nil {
-		return nil, err
-	}
-	index.env = linalg.NewLinAlg[T](opts)
-
-	return &index, nil
-}
-
-func NewRandomizedKdTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, nTrees uint, opts linalg.LinAlgOptions) *bspTreeIndex[T, U, randomizedKdCutPlane[T, U]] {
-	gob.Register(kdCutPlane[T, U]{})
-	gob.Register(randomizedKdCutPlane[T, U]{})
-
-	env := linalg.NewLinAlg[T](opts)
-	config := TreeConfig{
-		Dim:   dim,
-		Leafs: leafSize,
-		Trees: nTrees,
-		Procs: 1,
-	}
-	return &bspTreeIndex[T, U, randomizedKdCutPlane[T, U]]{
-		config:   config,
-		Elements: make([]treeElement[T, U], 0),
-		env:      env,
-	}
-}
-
-func LoadRandomizedKdTreeIndex[T linalg.Number, U comparable](r io.Reader, opts linalg.LinAlgOptions) (*bspTreeIndex[T, U, randomizedKdCutPlane[T, U]], error) {
-	gob.Register(kdCutPlane[T, U]{})
-	gob.Register(randomizedKdCutPlane[T, U]{})
-	index, err := loadIndex[bspTreeIndex[T, U, randomizedKdCutPlane[T, U]]](r)
-	if err != nil {
-		return nil, err
-	}
-	index.env = linalg.NewLinAlg[T](opts)
-
-	return &index, nil
-}
-
-func NewRandomizedRpTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, nTrees uint, opts linalg.LinAlgOptions) *bspTreeIndex[T, U, rpCutPlane[T, U]] {
-	gob.Register(rpCutPlane[T, U]{})
-
-	env := linalg.NewLinAlg[T](opts)
-	config := TreeConfig{
-		Dim:   dim,
-		Leafs: leafSize,
-		Trees: nTrees,
-		Procs: 1,
-	}
-	return &bspTreeIndex[T, U, rpCutPlane[T, U]]{
-		config:   config,
-		Elements: make([]treeElement[T, U], 0, 4096),
-		env:      env,
-	}
-}
-
-func LoadRandomizedRpTreeIndex[T linalg.Number, U comparable](r io.Reader, opts linalg.LinAlgOptions) (*bspTreeIndex[T, U, rpCutPlane[T, U]], error) {
 	gob.Register(rpCutPlane[T, U]{})
 	index, err := loadIndex[bspTreeIndex[T, U, rpCutPlane[T, U]]](r)
 	if err != nil {

@@ -26,13 +26,42 @@ func createIndex[T linalg.Number, U comparable](index string, nDim uint, leafSiz
 	case "flat":
 		return countrymaam.NewFlatIndex[T, U](nDim, opts), nil
 	case "kd-tree":
-		return countrymaam.NewKdTreeIndex[T, U](nDim, leafSize, opts), nil
+		return countrymaam.NewKdTreeIndex[T, U](
+			countrymaam.TreeConfig{
+				Dim:   nDim,
+				Leafs: leafSize,
+			},
+			opts), nil
 	case "rkd-tree":
-		return countrymaam.NewRandomizedKdTreeIndex[T, U](nDim, leafSize, nTrees, opts), nil
+		return countrymaam.NewKdTreeIndex[T, U](
+			countrymaam.TreeConfig{
+				CutPlaneOptions: countrymaam.CutPlaneOptions{
+					Features:   100,
+					Candidates: 5,
+				},
+				Dim:   nDim,
+				Leafs: leafSize,
+				Trees: nTrees,
+			},
+			opts), nil
 	case "rp-tree":
-		return countrymaam.NewRpTreeIndex[T, U](nDim, leafSize, opts), nil
+		return countrymaam.NewRpTreeIndex[T, U](
+			countrymaam.TreeConfig{
+				Dim:   nDim,
+				Leafs: leafSize,
+			},
+			opts), nil
 	case "rrp-tree":
-		return countrymaam.NewRandomizedRpTreeIndex[T, U](nDim, leafSize, nTrees, opts), nil
+		return countrymaam.NewRpTreeIndex[T, U](
+			countrymaam.TreeConfig{
+				CutPlaneOptions: countrymaam.CutPlaneOptions{
+					Features: 32,
+				},
+				Dim:   nDim,
+				Leafs: leafSize,
+				Trees: nTrees,
+			},
+			opts), nil
 	default:
 		return nil, fmt.Errorf("unknown index name: %s", index)
 	}
@@ -51,11 +80,11 @@ func loadIndex[T linalg.Number, U comparable](index string, inputPath string, op
 	case "kd-tree":
 		return countrymaam.LoadKdTreeIndex[T, U](file, opts)
 	case "rkd-tree":
-		return countrymaam.LoadRandomizedKdTreeIndex[T, U](file, opts)
+		return countrymaam.LoadKdTreeIndex[T, U](file, opts)
 	case "rp-tree":
 		return countrymaam.LoadRpTreeIndex[T, U](file, opts)
 	case "rrp-tree":
-		return countrymaam.LoadRandomizedRpTreeIndex[T, U](file, opts)
+		return countrymaam.LoadRpTreeIndex[T, U](file, opts)
 	default:
 		return nil, fmt.Errorf("unknown index name: %s", index)
 	}

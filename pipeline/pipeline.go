@@ -4,8 +4,10 @@ import (
 	"context"
 )
 
+const streamBufferSize = 8
+
 func Take[T any](ctx context.Context, n uint, inputStream <-chan T) <-chan T {
-	outputStream := make(chan T)
+	outputStream := make(chan T, streamBufferSize)
 	go func() {
 		defer close(outputStream)
 
@@ -31,7 +33,7 @@ func Take[T any](ctx context.Context, n uint, inputStream <-chan T) <-chan T {
 }
 
 func Unique[T comparable](ctx context.Context, inputStream <-chan T) <-chan T {
-	outputStream := make(chan T)
+	outputStream := make(chan T, streamBufferSize)
 	go func() {
 		defer close(outputStream)
 
@@ -59,7 +61,7 @@ func Unique[T comparable](ctx context.Context, inputStream <-chan T) <-chan T {
 }
 
 func Seq(ctx context.Context, n uint) <-chan int {
-	outputStream := make(chan int)
+	outputStream := make(chan int, streamBufferSize)
 	go func() {
 		defer close(outputStream)
 		for i := uint(0); i < n; i++ {
@@ -75,7 +77,7 @@ func Seq(ctx context.Context, n uint) <-chan int {
 }
 
 func ToSlice[T any](ctx context.Context, inputStream <-chan T) []T {
-	output := []T{}
+	output := make([]T, 0)
 	for item := range inputStream {
 		output = append(output, item)
 	}
@@ -84,7 +86,7 @@ func ToSlice[T any](ctx context.Context, inputStream <-chan T) []T {
 }
 
 func OrDone[T any](ctx context.Context, inputStream <-chan T) <-chan T {
-	outputStream := make(chan T)
+	outputStream := make(chan T, streamBufferSize)
 	go func() {
 		defer close(outputStream)
 		for {

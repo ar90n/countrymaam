@@ -112,7 +112,7 @@ func (fi flatIndex[T, U]) HasIndex() bool {
 }
 
 func (fi flatIndex[T, U]) Save(w io.Writer) error {
-	return saveIndex(&fi, w)
+	return saveIndex(fi, w)
 }
 
 func (fi flatIndex[T, U]) getChunks() <-chan chunk {

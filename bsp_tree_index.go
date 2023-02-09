@@ -274,7 +274,7 @@ func (bsp bspTreeIndex[T, U, C]) Empty() bool {
 }
 
 func (bsp bspTreeIndex[T, U, C]) Save(w io.Writer) error {
-	return saveIndex(&bsp, w)
+	return saveIndex(bsp, w)
 }
 
 func NewKdTreeIndex[T linalg.Number, U comparable](dim uint, leafSize uint, opts linalg.LinAlgOptions) *bspTreeIndex[T, U, kdCutPlane[T, U]] {

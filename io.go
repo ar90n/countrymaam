@@ -6,7 +6,7 @@ import (
 	"io"
 )
 
-func saveIndex[T any](index *T, w io.Writer) error {
+func saveIndex[T any](index T, w io.Writer) error {
 	var buffer bytes.Buffer
 	enc := gob.NewEncoder(&buffer)
 	if err := enc.Encode(index); err != nil {

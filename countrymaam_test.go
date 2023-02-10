@@ -27,8 +27,8 @@ func getDataset1() [][]float32 {
 	}
 }
 
-func mustNewTreeIndex[T linalg.Number, U comparable, C CutPlane[T, U]](config TreeConfig) Index[T, U] {
-	index, err := NewTreeIndex[T, U, C](config)
+func mustNewTreeIndex[T linalg.Number, U comparable](config TreeConfig, cpf CutPlaneFactory[T, U]) Index[T, U] {
+	index, err := NewTreeIndex(config, cpf)
 	if err != nil {
 		panic(err)
 	}
@@ -58,60 +58,76 @@ func TestSearchKNNVectors(t *testing.T) {
 		},
 		{
 			"KDTreeIndex-Leafs:1-Trees:1",
-			mustNewTreeIndex[float32, int, kdCutPlane[float32, int]](TreeConfig{
-				Dim: datasetDim,
-			}),
+			mustNewTreeIndex[float32, int](
+				TreeConfig{
+					Dim: datasetDim,
+				},
+				kdCutPlaneFactory[float32, int]{},
+			),
 		},
 		{
 			"KDTreeIndex-Leafs:5-Trees:1",
-			mustNewTreeIndex[float32, int, kdCutPlane[float32, int]](TreeConfig{
+			mustNewTreeIndex[float32, int](TreeConfig{
 				Dim:   datasetDim,
 				Leafs: 5,
-			}),
+			},
+				kdCutPlaneFactory[float32, int]{},
+			),
 		},
 		{
 			"KDTreeIndex-Leafs:1-Trees5",
-			mustNewTreeIndex[float32, int, kdCutPlane[float32, int]](
+			mustNewTreeIndex[float32, int](
 				TreeConfig{
-					CutPlaneOptions: CutPlaneOptions{
+					Dim:   datasetDim,
+					Trees: 5,
+				},
+				kdCutPlaneFactory[float32, int]{
+					opts: CutPlaneOptions{
 						Features:   100,
 						Candidates: 5,
 					},
-					Dim:   datasetDim,
-					Trees: 5,
-				}),
+				},
+			),
 		},
 		{
 			"RpTreeIndex-Leafs:1",
-			mustNewTreeIndex[float32, int, rpCutPlane[float32, int]](
+			mustNewTreeIndex[float32, int](
 				TreeConfig{
 					CutPlaneOptions: CutPlaneOptions{
 						Features: 32,
 					},
 					Dim: datasetDim,
-				}),
+				},
+				rpCutPlaneFactory[float32, int]{},
+			),
 		},
 		{
 			"RpTreeIndex-Leafs:5",
-			mustNewTreeIndex[float32, int, rpCutPlane[float32, int]](
+			mustNewTreeIndex[float32, int](
 				TreeConfig{
-					CutPlaneOptions: CutPlaneOptions{
-						Features: 32,
-					},
 					Dim:   datasetDim,
 					Leafs: 5,
-				}),
+				},
+				rpCutPlaneFactory[float32, int]{
+					opts: CutPlaneOptions{
+						Features: 32,
+					},
+				},
+			),
 		},
 		{
 			"RpTreeIndex-Leafs:1-Trees:5",
-			mustNewTreeIndex[float32, int, rpCutPlane[float32, int]](
+			mustNewTreeIndex[float32, int](
 				TreeConfig{
-					CutPlaneOptions: CutPlaneOptions{
-						Features: 32,
-					},
 					Dim:   datasetDim,
 					Trees: 5,
-				}),
+				},
+				rpCutPlaneFactory[float32, int]{
+					opts: CutPlaneOptions{
+						Features: 32,
+					},
+				},
+			),
 		},
 	} {
 		t.Run(alg.Name, func(t *testing.T) {
@@ -190,20 +206,23 @@ func TestRebuildIndex(t *testing.T) {
 		},
 		{
 			"KDTreeIndex",
-			mustNewTreeIndex[float32, int, kdCutPlane[float32, int]](TreeConfig{Dim: datasetDim}),
+			mustNewTreeIndex[float32, int](TreeConfig{Dim: datasetDim}, kdCutPlaneFactory[float32, int]{}),
 		},
 		{
 			"RandomizedKDTreeIndex",
-			mustNewTreeIndex[float32, int, kdCutPlane[float32, int]](
+			mustNewTreeIndex[float32, int](
 				TreeConfig{
-					CutPlaneOptions: CutPlaneOptions{
-						Features:   100,
-						Candidates: 5,
-					},
 					Dim:   datasetDim,
 					Leafs: 1,
 					Trees: 5,
-				}),
+				},
+				kdCutPlaneFactory[float32, int]{
+					opts: CutPlaneOptions{
+						Features:   100,
+						Candidates: 5,
+					},
+				},
+			),
 		},
 	} {
 		t.Run(alg.Name, func(t *testing.T) {
@@ -276,21 +295,25 @@ func TestBuildIndexWhenPoolIsEmpty(t *testing.T) {
 		},
 		{
 			"KDTreeIndex",
-			mustNewTreeIndex[float32, int, kdCutPlane[float32, int]](
+			mustNewTreeIndex[float32, int](
 				TreeConfig{
 					Dim:   datasetDim,
 					Leafs: 1,
-				}),
+				},
+				kdCutPlaneFactory[float32, int]{},
+			),
 			false,
 		},
 		{
 			"RandomizedKDTreeIndex",
-			mustNewTreeIndex[float32, int, kdCutPlane[float32, int]](
+			mustNewTreeIndex[float32, int](
 				TreeConfig{
 					Dim:   datasetDim,
 					Leafs: 1,
 					Trees: 5,
-				}),
+				},
+				kdCutPlaneFactory[float32, int]{},
+			),
 			false,
 		},
 	} {
@@ -351,21 +374,21 @@ func TestSerDesKNNVectors(t *testing.T) {
 		testSerDes(t, NewFlatIndex[float32, int](datasetDim), dataset)
 	})
 	t.Run("KdTreeIndex-Leafs:1", func(t *testing.T) {
-		testSerDes(t, mustNewTreeIndex[float32, int, kdCutPlane[float32, int]](TreeConfig{Dim: datasetDim, Leafs: 1}), dataset)
+		testSerDes(t, mustNewTreeIndex[float32, int](TreeConfig{Dim: datasetDim, Leafs: 1}, kdCutPlaneFactory[float32, int]{}), dataset)
 	})
 	t.Run("KDTreeIndex-Leafs:5", func(t *testing.T) {
-		testSerDes(t, mustNewTreeIndex[float32, int, kdCutPlane[float32, int]](TreeConfig{Dim: datasetDim, Leafs: 5}), dataset)
+		testSerDes(t, mustNewTreeIndex[float32, int](TreeConfig{Dim: datasetDim, Leafs: 5}, kdCutPlaneFactory[float32, int]{}), dataset)
 	})
 	t.Run("KDTreeIndex-Leafs:1-Trees:5", func(t *testing.T) {
-		testSerDes(t, mustNewTreeIndex[float32, int, kdCutPlane[float32, int]](TreeConfig{CutPlaneOptions: CutPlaneOptions{Features: 100, Candidates: 5}, Dim: datasetDim, Leafs: 1, Trees: 5}), dataset)
+		testSerDes(t, mustNewTreeIndex[float32, int](TreeConfig{Dim: datasetDim, Leafs: 1, Trees: 5}, kdCutPlaneFactory[float32, int]{opts: CutPlaneOptions{Features: 100, Candidates: 5}}), dataset)
 	})
 	t.Run("RpTreeIndex-Leafs:1", func(t *testing.T) {
-		testSerDes(t, mustNewTreeIndex[float32, int, rpCutPlane[float32, int]](TreeConfig{Dim: datasetDim, Leafs: 1}), dataset)
+		testSerDes(t, mustNewTreeIndex[float32, int](TreeConfig{Dim: datasetDim, Leafs: 1}, rpCutPlaneFactory[float32, int]{}), dataset)
 	})
 	t.Run("RpTreeIndex-Leafs:5", func(t *testing.T) {
-		testSerDes(t, mustNewTreeIndex[float32, int, rpCutPlane[float32, int]](TreeConfig{Dim: datasetDim, Leafs: 5}), dataset)
+		testSerDes(t, mustNewTreeIndex[float32, int](TreeConfig{Dim: datasetDim, Leafs: 5}, rpCutPlaneFactory[float32, int]{}), dataset)
 	})
 	t.Run("RpTreeIndex-Leafs:1-Trees:5", func(t *testing.T) {
-		testSerDes(t, mustNewTreeIndex[float32, int, rpCutPlane[float32, int]](TreeConfig{CutPlaneOptions: CutPlaneOptions{Features: 32}, Dim: datasetDim, Leafs: 1, Trees: 5}), dataset)
+		testSerDes(t, mustNewTreeIndex[float32, int](TreeConfig{Dim: datasetDim, Leafs: 1, Trees: 5}, rpCutPlaneFactory[float32, int]{opts: CutPlaneOptions{Features: 32}}), dataset)
 	})
 }

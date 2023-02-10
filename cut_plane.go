@@ -14,6 +14,11 @@ type CutPlaneOptions struct {
 	Candidates uint
 }
 
+type CutPlaneFactory[T linalg.Number, U comparable] interface {
+	Default() CutPlane[T, U]
+	Build(elements []treeElement[T, U], indice []int, env linalg.Env[T]) (CutPlane[T, U], error)
+}
+
 type CutPlane[T linalg.Number, U comparable] interface {
 	Evaluate(feature []T, env linalg.Env[T]) bool
 	Distance(feature []T, env linalg.Env[T]) float64
@@ -164,4 +169,30 @@ func (cp rpCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int,
 		A:            a,
 	}
 	return &cutPlane, nil
+}
+
+type kdCutPlaneFactory[T linalg.Number, U comparable] struct {
+	opts CutPlaneOptions
+}
+
+func (f kdCutPlaneFactory[T, U]) Default() CutPlane[T, U] {
+	return kdCutPlane[T, U]{}
+}
+
+func (f kdCutPlaneFactory[T, U]) Build(elements []treeElement[T, U], indice []int, env linalg.Env[T]) (CutPlane[T, U], error) {
+	cutPlane := kdCutPlane[T, U]{}
+	return cutPlane.Construct(elements, indice, env, f.opts)
+}
+
+type rpCutPlaneFactory[T linalg.Number, U comparable] struct {
+	opts CutPlaneOptions
+}
+
+func (f rpCutPlaneFactory[T, U]) Default() CutPlane[T, U] {
+	return rpCutPlane[T, U]{}
+}
+
+func (f rpCutPlaneFactory[T, U]) Build(elements []treeElement[T, U], indice []int, env linalg.Env[T]) (CutPlane[T, U], error) {
+	cutPlane := rpCutPlane[T, U]{}
+	return cutPlane.Construct(elements, indice, env, f.opts)
 }

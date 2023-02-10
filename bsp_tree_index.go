@@ -104,7 +104,6 @@ func newTreeRoot[T linalg.Number, U comparable](elements []treeElement[T, U], le
 }
 
 type TreeConfig struct {
-	CutPlaneOptions
 	Dim   uint
 	Leafs uint
 	Trees uint
@@ -272,22 +271,20 @@ func (bsp bspTreeIndex[T, U]) Save(w io.Writer) error {
 	return saveIndex(bsp, w)
 }
 
-func NewKdTreeIndex[T linalg.Number, U comparable](config TreeConfig) (*bspTreeIndex[T, U], error) {
-	cpf := kdCutPlaneFactory[T, U]{opts: config.CutPlaneOptions}
-	return NewTreeIndex[T, U](config, cpf)
+func NewKdTreeIndex[T linalg.Number, U comparable](config TreeConfig, features, candidates uint) (*bspTreeIndex[T, U], error) {
+	return NewTreeIndex(config, NewKdCutPlaneFactory[T, U](features, candidates))
 }
 
 func LoadKdTreeIndex[T linalg.Number, U comparable](r io.Reader) (*bspTreeIndex[T, U], error) {
-	return LoadTreeIndex[T, U, kdCutPlane[T, U]](r)
+	return LoadTreeIndex(r, NewKdCutPlaneFactory[T, U](0, 0))
 }
 
-func NewRpTreeIndex[T linalg.Number, U comparable](config TreeConfig) (*bspTreeIndex[T, U], error) {
-	cpf := rpCutPlaneFactory[T, U]{opts: config.CutPlaneOptions}
-	return NewTreeIndex[T, U](config, cpf)
+func NewRpTreeIndex[T linalg.Number, U comparable](config TreeConfig, features uint) (*bspTreeIndex[T, U], error) {
+	return NewTreeIndex(config, NewRpCutPlaneFactory[T, U](features))
 }
 
 func LoadRpTreeIndex[T linalg.Number, U comparable](r io.Reader) (*bspTreeIndex[T, U], error) {
-	return LoadTreeIndex[T, U, rpCutPlane[T, U]](r)
+	return LoadTreeIndex(r, NewRpCutPlaneFactory[T, U](0))
 }
 
 func NewTreeIndex[T linalg.Number, U comparable](config TreeConfig, cpf CutPlaneFactory[T, U]) (*bspTreeIndex[T, U], error) {
@@ -325,8 +322,8 @@ func NewTreeIndex[T linalg.Number, U comparable](config TreeConfig, cpf CutPlane
 	}, nil
 }
 
-func LoadTreeIndex[T linalg.Number, U comparable, C CutPlane[T, U]](r io.Reader) (*bspTreeIndex[T, U], error) {
-	gob.Register(*new(C))
+func LoadTreeIndex[T linalg.Number, U comparable](r io.Reader, cpf CutPlaneFactory[T, U]) (*bspTreeIndex[T, U], error) {
+	gob.Register(cpf.Default())
 
 	index, err := loadIndex[bspTreeIndex[T, U]](r)
 	if err != nil {

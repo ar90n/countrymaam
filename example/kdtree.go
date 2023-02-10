@@ -47,14 +47,13 @@ func main() {
 	ctx := context.Background()
 	index, err := countrymaam.NewKdTreeIndex[uint8, int](
 		countrymaam.TreeConfig{
-			CutPlaneOptions: countrymaam.CutPlaneOptions{
-				Features:   100,
-				Candidates: 5,
-			},
 			Dim:   dim,
 			Leafs: 8,
 			Trees: 8,
-		})
+		},
+		100,
+		5,
+	)
 	if err != nil {
 		panic(err)
 	}

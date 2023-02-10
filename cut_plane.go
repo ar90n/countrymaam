@@ -9,11 +9,6 @@ import (
 	"github.com/ar90n/countrymaam/linalg"
 )
 
-type CutPlaneOptions struct {
-	Features   uint
-	Candidates uint
-}
-
 type CutPlaneFactory[T linalg.Number, U comparable] interface {
 	Default() CutPlane[T, U]
 	Build(elements []treeElement[T, U], indice []int, env linalg.Env[T]) (CutPlane[T, U], error)
@@ -22,7 +17,6 @@ type CutPlaneFactory[T linalg.Number, U comparable] interface {
 type CutPlane[T linalg.Number, U comparable] interface {
 	Evaluate(feature []T, env linalg.Env[T]) bool
 	Distance(feature []T, env linalg.Env[T]) float64
-	Construct(elements []treeElement[T, U], indice []int, env linalg.Env[T], opts CutPlaneOptions) (CutPlane[T, U], error)
 }
 
 // kdCutPlane is a cut plane that is constructed by kdtree algorithm.
@@ -41,7 +35,36 @@ func (cp kdCutPlane[T, U]) Distance(feature []T, env linalg.Env[T]) float64 {
 	return float64(feature[cp.Axis]) - cp.Value
 }
 
-func (cp kdCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int, env linalg.Env[T], opts CutPlaneOptions) (CutPlane[T, U], error) {
+type rpCutPlane[T linalg.Number, U comparable] struct {
+	NormalVector []float32
+	A            float64
+}
+
+func (cp rpCutPlane[T, U]) Evaluate(feature []T, env linalg.Env[T]) bool {
+	return 0.0 <= cp.Distance(feature, env)
+}
+
+func (cp rpCutPlane[T, U]) Distance(feature []T, env linalg.Env[T]) float64 {
+	return cp.A + float64(env.DotWithF32(feature, cp.NormalVector))
+}
+
+type kdCutPlaneFactory[T linalg.Number, U comparable] struct {
+	features   uint
+	candidates uint
+}
+
+func NewKdCutPlaneFactory[T linalg.Number, U comparable](features, candidates uint) CutPlaneFactory[T, U] {
+	return kdCutPlaneFactory[T, U]{
+		features:   features,
+		candidates: candidates,
+	}
+}
+
+func (f kdCutPlaneFactory[T, U]) Default() CutPlane[T, U] {
+	return kdCutPlane[T, U]{}
+}
+
+func (f kdCutPlaneFactory[T, U]) Build(elements []treeElement[T, U], indice []int, env linalg.Env[T]) (CutPlane[T, U], error) {
 	if len(indice) == 0 {
 		return nil, errors.New("elements is empty")
 	}
@@ -50,8 +73,8 @@ func (cp kdCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int,
 	accs := make([]float64, dim)
 	sqAccs := make([]float64, dim)
 	nSamples := uint(len(indice))
-	if 0 < opts.Features && opts.Features < nSamples {
-		nSamples = opts.Features
+	if 0 < f.features && f.features < nSamples {
+		nSamples = f.features
 	}
 	for _, i := range indice[:nSamples] {
 		element := elements[i]
@@ -77,7 +100,7 @@ func (cp kdCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int,
 	}
 
 	// Randomly select one of the best candidates.
-	nCandidates := linalg.Min(int(opts.Candidates), queue.Len())
+	nCandidates := linalg.Min(int(f.candidates), queue.Len())
 	nSkip := 0
 	if 0 < nCandidates {
 		nSkip = rand.Intn(nCandidates) - 1
@@ -88,20 +111,19 @@ func (cp kdCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int,
 	return queue.Pop()
 }
 
-type rpCutPlane[T linalg.Number, U comparable] struct {
-	NormalVector []float32
-	A            float64
+type rpCutPlaneFactory[T linalg.Number, U comparable] struct {
+	features uint
 }
 
-func (cp rpCutPlane[T, U]) Evaluate(feature []T, env linalg.Env[T]) bool {
-	return 0.0 <= cp.Distance(feature, env)
+func NewRpCutPlaneFactory[T linalg.Number, U comparable](features uint) CutPlaneFactory[T, U] {
+	return rpCutPlaneFactory[T, U]{features: features}
 }
 
-func (cp rpCutPlane[T, U]) Distance(feature []T, env linalg.Env[T]) float64 {
-	return cp.A + float64(env.DotWithF32(feature, cp.NormalVector))
+func (f rpCutPlaneFactory[T, U]) Default() CutPlane[T, U] {
+	return rpCutPlane[T, U]{}
 }
 
-func (cp rpCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int, env linalg.Env[T], opts CutPlaneOptions) (CutPlane[T, U], error) {
+func (f rpCutPlaneFactory[T, U]) Build(elements []treeElement[T, U], indice []int, env linalg.Env[T]) (CutPlane[T, U], error) {
 	if len(indice) == 0 {
 		return nil, errors.New("elements is empty")
 	}
@@ -122,7 +144,14 @@ func (cp rpCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int,
 		lhsCenter[i] = float32(elements[indice[lhsIndex]].Feature[i])
 		rhsCenter[i] = float32(elements[indice[rhsIndex]].Feature[i])
 	}
-	nSamples := linalg.Min(uint(len(indice)), 32)
+	nSamples := uint(32)
+	if 0 < f.features {
+		nSamples = f.features
+	}
+	if uint(len(indice)) < nSamples {
+		nSamples = uint(len(indice))
+	}
+
 	for i := 0; i < maxIter; i++ {
 		rand.Shuffle(len(indice), func(i, j int) { indice[i], indice[j] = indice[j], indice[i] })
 		for _, k := range indice[:nSamples] {
@@ -169,30 +198,4 @@ func (cp rpCutPlane[T, U]) Construct(elements []treeElement[T, U], indice []int,
 		A:            a,
 	}
 	return &cutPlane, nil
-}
-
-type kdCutPlaneFactory[T linalg.Number, U comparable] struct {
-	opts CutPlaneOptions
-}
-
-func (f kdCutPlaneFactory[T, U]) Default() CutPlane[T, U] {
-	return kdCutPlane[T, U]{}
-}
-
-func (f kdCutPlaneFactory[T, U]) Build(elements []treeElement[T, U], indice []int, env linalg.Env[T]) (CutPlane[T, U], error) {
-	cutPlane := kdCutPlane[T, U]{}
-	return cutPlane.Construct(elements, indice, env, f.opts)
-}
-
-type rpCutPlaneFactory[T linalg.Number, U comparable] struct {
-	opts CutPlaneOptions
-}
-
-func (f rpCutPlaneFactory[T, U]) Default() CutPlane[T, U] {
-	return rpCutPlane[T, U]{}
-}
-
-func (f rpCutPlaneFactory[T, U]) Build(elements []treeElement[T, U], indice []int, env linalg.Env[T]) (CutPlane[T, U], error) {
-	cutPlane := rpCutPlane[T, U]{}
-	return cutPlane.Construct(elements, indice, env, f.opts)
 }

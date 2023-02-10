@@ -5,8 +5,10 @@ import (
 	"encoding/gob"
 	"errors"
 	"io"
+	"log"
 	"math"
 	"math/rand"
+	"runtime"
 
 	"github.com/ar90n/countrymaam/collection"
 	"github.com/ar90n/countrymaam/linalg"
@@ -15,6 +17,7 @@ import (
 
 const streamBufferSize = 64
 const queueCapcitySize = 64
+const defaultLeafs = 16
 
 type treeElement[T linalg.Number, U comparable] struct {
 	Feature []T
@@ -43,9 +46,13 @@ type TreeConfig struct {
 }
 
 type bspTreeIndex[T linalg.Number, U comparable, C CutPlane[T, U]] struct {
-	Elements []treeElement[T, U]
-	Roots    []treeRoot[T, U]
-	config   TreeConfig
+	Elements       []treeElement[T, U]
+	Roots          []treeRoot[T, U]
+	CutPlaneConfig CutPlaneOptions
+	Dim            uint
+	Leafs          uint
+	Trees          uint
+	Procs          uint
 }
 
 type queueItem struct {
@@ -96,11 +103,7 @@ func (bsp *bspTreeIndex[T, U, C]) buildTree(ctx context.Context, indice []int, o
 		return 0, nil
 	}
 
-	nLeafs := bsp.config.Leafs
-	if nLeafs == 0 {
-		nLeafs = 1
-	}
-	if nElements <= nLeafs {
+	if nElements <= bsp.Leafs {
 		node := treeNode[T, U]{
 			Begin: offset,
 			End:   offset + nElements,
@@ -110,7 +113,7 @@ func (bsp *bspTreeIndex[T, U, C]) buildTree(ctx context.Context, indice []int, o
 		return nNodes, nil
 	}
 
-	cutPlane, err := (*new(C)).Construct(bsp.Elements, indice, env, bsp.config.CutPlaneOptions)
+	cutPlane, err := (*new(C)).Construct(bsp.Elements, indice, env, bsp.CutPlaneConfig)
 	if err != nil {
 		return 0, err
 	}
@@ -151,22 +154,12 @@ func (bsp *bspTreeIndex[T, U, C]) Build(ctx context.Context) error {
 
 	env := linalg.NewLinAlgFromContext[T](ctx)
 
-	nTrees := bsp.config.Trees
-	if nTrees == 0 {
-		nTrees = 1
-	}
-
-	taskStream := pipeline.Seq(ctx, nTrees)
+	taskStream := pipeline.Seq(ctx, bsp.Trees)
 	rootStream := make(chan result[treeRoot[T, U]])
 	defer close(rootStream)
 
-	bsp.Roots = make([]treeRoot[T, U], nTrees)
-	nProcs := bsp.config.Procs
-	if nProcs == 0 {
-		//nProcs = uint(runtime.NumCPU())
-		nProcs = uint(1)
-	}
-	for i := uint(0); i < nProcs; i++ {
+	bsp.Roots = make([]treeRoot[T, U], bsp.Trees)
+	for i := uint(0); i < bsp.Procs; i++ {
 		go func() {
 			for t := range taskStream {
 				root, err := bsp.buildRoot(ctx, uint(t), env)
@@ -176,7 +169,7 @@ func (bsp *bspTreeIndex[T, U, C]) Build(ctx context.Context) error {
 	}
 
 	i := 0
-	for uint(i) < nTrees {
+	for uint(i) < bsp.Trees {
 		ret := <-rootStream
 		if ret.Error != nil {
 			return ret.Error
@@ -295,7 +288,7 @@ func (bsp bspTreeIndex[T, U, C]) Save(w io.Writer) error {
 	return saveIndex(bsp, w)
 }
 
-func NewKdTreeIndex[T linalg.Number, U comparable](config TreeConfig) *bspTreeIndex[T, U, kdCutPlane[T, U]] {
+func NewKdTreeIndex[T linalg.Number, U comparable](config TreeConfig) (*bspTreeIndex[T, U, kdCutPlane[T, U]], error) {
 	return NewTreeIndex[T, U, kdCutPlane[T, U]](config)
 }
 
@@ -303,7 +296,7 @@ func LoadKdTreeIndex[T linalg.Number, U comparable](r io.Reader) (*bspTreeIndex[
 	return LoadTreeIndex[T, U, kdCutPlane[T, U]](r)
 }
 
-func NewRpTreeIndex[T linalg.Number, U comparable](config TreeConfig) *bspTreeIndex[T, U, rpCutPlane[T, U]] {
+func NewRpTreeIndex[T linalg.Number, U comparable](config TreeConfig) (*bspTreeIndex[T, U, rpCutPlane[T, U]], error) {
 	return NewTreeIndex[T, U, rpCutPlane[T, U]](config)
 }
 
@@ -311,13 +304,39 @@ func LoadRpTreeIndex[T linalg.Number, U comparable](r io.Reader) (*bspTreeIndex[
 	return LoadTreeIndex[T, U, rpCutPlane[T, U]](r)
 }
 
-func NewTreeIndex[T linalg.Number, U comparable, C CutPlane[T, U]](config TreeConfig) *bspTreeIndex[T, U, C] {
+func NewTreeIndex[T linalg.Number, U comparable, C CutPlane[T, U]](config TreeConfig) (*bspTreeIndex[T, U, C], error) {
 	gob.Register(*new(C))
 
-	return &bspTreeIndex[T, U, C]{
-		config:   config,
-		Elements: make([]treeElement[T, U], 0),
+	if config.Dim == uint(0) {
+		return nil, errors.New("dimension is not set")
 	}
+
+	leafs := config.Leafs
+	if leafs == 0 {
+		leafs = defaultLeafs
+		log.Println("Leafs in given Config is not set. use default value", leafs)
+	}
+
+	trees := config.Trees
+	if trees == 0 {
+		trees = 1
+		log.Println("Trees in given Config is not set. use default value", trees)
+	}
+
+	procs := config.Procs
+	if procs == 0 {
+		procs = uint(runtime.NumCPU())
+		log.Println("Procs in given Config is not set. use default value", procs)
+	}
+
+	return &bspTreeIndex[T, U, C]{
+		Elements:       make([]treeElement[T, U], 0),
+		CutPlaneConfig: config.CutPlaneOptions,
+		Dim:            config.Dim,
+		Leafs:          leafs,
+		Trees:          trees,
+		Procs:          procs,
+	}, nil
 }
 
 func LoadTreeIndex[T linalg.Number, U comparable, C CutPlane[T, U]](r io.Reader) (*bspTreeIndex[T, U, C], error) {

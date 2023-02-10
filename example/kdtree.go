@@ -45,7 +45,7 @@ func readFeatures(dim uint) ([][]uint8, error) {
 func main() {
 	dim := uint(64)
 	ctx := context.Background()
-	index := countrymaam.NewKdTreeIndex[uint8, int](
+	index, err := countrymaam.NewKdTreeIndex[uint8, int](
 		countrymaam.TreeConfig{
 			CutPlaneOptions: countrymaam.CutPlaneOptions{
 				Features:   100,
@@ -55,6 +55,9 @@ func main() {
 			Leafs: 8,
 			Trees: 8,
 		})
+	if err != nil {
+		panic(err)
+	}
 
 	features, err := readFeatures(dim)
 	if err != nil {

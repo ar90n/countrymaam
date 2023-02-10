@@ -30,7 +30,7 @@ func createIndex[T linalg.Number, U comparable](index string, nDim uint, leafSiz
 			countrymaam.TreeConfig{
 				Dim:   nDim,
 				Leafs: leafSize,
-			}), nil
+			})
 	case "rkd-tree":
 		return countrymaam.NewKdTreeIndex[T, U](
 			countrymaam.TreeConfig{
@@ -41,13 +41,13 @@ func createIndex[T linalg.Number, U comparable](index string, nDim uint, leafSiz
 				Dim:   nDim,
 				Leafs: leafSize,
 				Trees: nTrees,
-			}), nil
+			})
 	case "rp-tree":
 		return countrymaam.NewRpTreeIndex[T, U](
 			countrymaam.TreeConfig{
 				Dim:   nDim,
 				Leafs: leafSize,
-			}), nil
+			})
 	case "rrp-tree":
 		return countrymaam.NewRpTreeIndex[T, U](
 			countrymaam.TreeConfig{
@@ -57,7 +57,7 @@ func createIndex[T linalg.Number, U comparable](index string, nDim uint, leafSiz
 				Dim:   nDim,
 				Leafs: leafSize,
 				Trees: nTrees,
-			}), nil
+			})
 	default:
 		return nil, fmt.Errorf("unknown index name: %s", index)
 	}

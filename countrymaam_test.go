@@ -27,6 +27,15 @@ func getDataset1() [][]float32 {
 	}
 }
 
+func mustNewTreeIndex[T linalg.Number, U comparable, C CutPlane[T, U]](config TreeConfig) Index[T, U] {
+	index, err := NewTreeIndex[T, U, C](config)
+	if err != nil {
+		panic(err)
+	}
+
+	return index
+}
+
 func TestSearchKNNVectors(t *testing.T) {
 	type Algorithm struct {
 		Name  string
@@ -49,22 +58,20 @@ func TestSearchKNNVectors(t *testing.T) {
 		},
 		{
 			"KDTreeIndex-Leafs:1-Trees:1",
-			NewKdTreeIndex[float32, int](
-				TreeConfig{
-					Dim: datasetDim,
-				}),
+			mustNewTreeIndex[float32, int, kdCutPlane[float32, int]](TreeConfig{
+				Dim: datasetDim,
+			}),
 		},
 		{
 			"KDTreeIndex-Leafs:5-Trees:1",
-			NewKdTreeIndex[float32, int](
-				TreeConfig{
-					Dim:   datasetDim,
-					Leafs: 5,
-				}),
+			mustNewTreeIndex[float32, int, kdCutPlane[float32, int]](TreeConfig{
+				Dim:   datasetDim,
+				Leafs: 5,
+			}),
 		},
 		{
 			"KDTreeIndex-Leafs:1-Trees5",
-			NewKdTreeIndex[float32, int](
+			mustNewTreeIndex[float32, int, kdCutPlane[float32, int]](
 				TreeConfig{
 					CutPlaneOptions: CutPlaneOptions{
 						Features:   100,
@@ -76,7 +83,7 @@ func TestSearchKNNVectors(t *testing.T) {
 		},
 		{
 			"RpTreeIndex-Leafs:1",
-			NewRpTreeIndex[float32, int](
+			mustNewTreeIndex[float32, int, rpCutPlane[float32, int]](
 				TreeConfig{
 					CutPlaneOptions: CutPlaneOptions{
 						Features: 32,
@@ -86,7 +93,7 @@ func TestSearchKNNVectors(t *testing.T) {
 		},
 		{
 			"RpTreeIndex-Leafs:5",
-			NewRpTreeIndex[float32, int](
+			mustNewTreeIndex[float32, int, rpCutPlane[float32, int]](
 				TreeConfig{
 					CutPlaneOptions: CutPlaneOptions{
 						Features: 32,
@@ -97,7 +104,7 @@ func TestSearchKNNVectors(t *testing.T) {
 		},
 		{
 			"RpTreeIndex-Leafs:1-Trees:5",
-			NewRpTreeIndex[float32, int](
+			mustNewTreeIndex[float32, int, rpCutPlane[float32, int]](
 				TreeConfig{
 					CutPlaneOptions: CutPlaneOptions{
 						Features: 32,
@@ -183,11 +190,11 @@ func TestRebuildIndex(t *testing.T) {
 		},
 		{
 			"KDTreeIndex",
-			NewKdTreeIndex[float32, int](TreeConfig{Dim: datasetDim}),
+			mustNewTreeIndex[float32, int, kdCutPlane[float32, int]](TreeConfig{Dim: datasetDim}),
 		},
 		{
 			"RandomizedKDTreeIndex",
-			NewKdTreeIndex[float32, int](
+			mustNewTreeIndex[float32, int, kdCutPlane[float32, int]](
 				TreeConfig{
 					CutPlaneOptions: CutPlaneOptions{
 						Features:   100,
@@ -269,7 +276,7 @@ func TestBuildIndexWhenPoolIsEmpty(t *testing.T) {
 		},
 		{
 			"KDTreeIndex",
-			NewKdTreeIndex[float32, int](
+			mustNewTreeIndex[float32, int, kdCutPlane[float32, int]](
 				TreeConfig{
 					Dim:   datasetDim,
 					Leafs: 1,
@@ -278,7 +285,7 @@ func TestBuildIndexWhenPoolIsEmpty(t *testing.T) {
 		},
 		{
 			"RandomizedKDTreeIndex",
-			NewKdTreeIndex[float32, int](
+			mustNewTreeIndex[float32, int, kdCutPlane[float32, int]](
 				TreeConfig{
 					Dim:   datasetDim,
 					Leafs: 1,
@@ -344,21 +351,21 @@ func TestSerDesKNNVectors(t *testing.T) {
 		testSerDes(t, NewFlatIndex[float32, int](datasetDim), dataset)
 	})
 	t.Run("KdTreeIndex-Leafs:1", func(t *testing.T) {
-		testSerDes(t, NewKdTreeIndex[float32, int](TreeConfig{Dim: datasetDim, Leafs: 1}), dataset)
+		testSerDes(t, mustNewTreeIndex[float32, int, kdCutPlane[float32, int]](TreeConfig{Dim: datasetDim, Leafs: 1}), dataset)
 	})
 	t.Run("KDTreeIndex-Leafs:5", func(t *testing.T) {
-		testSerDes(t, NewKdTreeIndex[float32, int](TreeConfig{Dim: datasetDim, Leafs: 5}), dataset)
+		testSerDes(t, mustNewTreeIndex[float32, int, kdCutPlane[float32, int]](TreeConfig{Dim: datasetDim, Leafs: 5}), dataset)
 	})
 	t.Run("KDTreeIndex-Leafs:1-Trees:5", func(t *testing.T) {
-		testSerDes(t, NewKdTreeIndex[float32, int](TreeConfig{CutPlaneOptions: CutPlaneOptions{Features: 100, Candidates: 5}, Dim: datasetDim, Leafs: 1, Trees: 5}), dataset)
+		testSerDes(t, mustNewTreeIndex[float32, int, kdCutPlane[float32, int]](TreeConfig{CutPlaneOptions: CutPlaneOptions{Features: 100, Candidates: 5}, Dim: datasetDim, Leafs: 1, Trees: 5}), dataset)
 	})
 	t.Run("RpTreeIndex-Leafs:1", func(t *testing.T) {
-		testSerDes(t, NewRpTreeIndex[float32, int](TreeConfig{Dim: datasetDim, Leafs: 1}), dataset)
+		testSerDes(t, mustNewTreeIndex[float32, int, rpCutPlane[float32, int]](TreeConfig{Dim: datasetDim, Leafs: 1}), dataset)
 	})
 	t.Run("RpTreeIndex-Leafs:5", func(t *testing.T) {
-		testSerDes(t, NewRpTreeIndex[float32, int](TreeConfig{Dim: datasetDim, Leafs: 5}), dataset)
+		testSerDes(t, mustNewTreeIndex[float32, int, rpCutPlane[float32, int]](TreeConfig{Dim: datasetDim, Leafs: 5}), dataset)
 	})
 	t.Run("RpTreeIndex-Leafs:1-Trees:5", func(t *testing.T) {
-		testSerDes(t, NewRpTreeIndex[float32, int](TreeConfig{CutPlaneOptions: CutPlaneOptions{Features: 32}, Dim: datasetDim, Leafs: 1, Trees: 5}), dataset)
+		testSerDes(t, mustNewTreeIndex[float32, int, rpCutPlane[float32, int]](TreeConfig{CutPlaneOptions: CutPlaneOptions{Features: 32}, Dim: datasetDim, Leafs: 1, Trees: 5}), dataset)
 	})
 }

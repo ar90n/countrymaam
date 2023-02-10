@@ -12,7 +12,6 @@ import (
 
 	"github.com/ar90n/countrymaam/collection"
 	"github.com/ar90n/countrymaam/linalg"
-	"github.com/ar90n/countrymaam/pipeline"
 	"github.com/sourcegraph/conc/pool"
 )
 
@@ -33,9 +32,75 @@ type treeNode[T linalg.Number, U comparable] struct {
 	Right    uint
 }
 
-type treeRoot[T linalg.Number, U comparable] struct {
+type treeRoot[T linalg.Number, U comparable, C CutPlane[T, U]] struct {
 	Indice []int
 	Nodes  []treeNode[T, U]
+}
+
+func (r *treeRoot[T, U, C]) addNode(node treeNode[T, U]) uint {
+	nc := uint(len(r.Nodes))
+	r.Nodes = append(r.Nodes, node)
+
+	return nc
+}
+
+func (r *treeRoot[T, U, C]) Build(elements []treeElement[T, U], indice []int, leafs, offset uint, env linalg.Env[T], cutPlaneConfig CutPlaneOptions) (uint, error) {
+	ec := uint(len(indice))
+	if ec == 0 {
+		return 0, nil
+	}
+
+	curIdx := r.addNode(treeNode[T, U]{
+		Begin: offset,
+		End:   offset + ec,
+	})
+
+	if ec <= leafs {
+		return curIdx, nil
+	}
+
+	cutPlane, err := (*new(C)).Construct(elements, indice, env, cutPlaneConfig)
+	if err != nil {
+		return 0, err
+	}
+	r.Nodes[curIdx].CutPlane = cutPlane
+
+	mid := collection.Partition(indice, func(i int) bool {
+		return cutPlane.Evaluate(elements[i].Feature, env)
+	})
+
+	left, err := r.Build(elements, indice[:mid], leafs, offset, env, cutPlaneConfig)
+	if err != nil {
+		return 0, err
+	}
+	r.Nodes[curIdx].Left = left
+
+	right, err := r.Build(elements, indice[mid:], leafs, offset+mid, env, cutPlaneConfig)
+	if err != nil {
+		return 0, err
+	}
+	r.Nodes[curIdx].Right = right
+
+	return curIdx, nil
+}
+
+func newTreeRoot[T linalg.Number, U comparable, C CutPlane[T, U]](elements []treeElement[T, U], leafs uint, env linalg.Env[T], cutPlaneConfig CutPlaneOptions) (treeRoot[T, U, C], error) {
+	indice := make([]int, len(elements))
+	for i := range indice {
+		indice[i] = i
+	}
+	rand.Shuffle(len(indice), func(i, j int) { indice[i], indice[j] = indice[j], indice[i] })
+
+	root := treeRoot[T, U, C]{
+		Indice: indice,
+		Nodes:  []treeNode[T, U]{},
+	}
+	_, err := root.Build(elements, indice, leafs, 0, env, cutPlaneConfig)
+	if err != nil {
+		return root, err
+	}
+
+	return root, nil
 }
 
 type TreeConfig struct {
@@ -48,7 +113,7 @@ type TreeConfig struct {
 
 type bspTreeIndex[T linalg.Number, U comparable, C CutPlane[T, U]] struct {
 	Elements       []treeElement[T, U]
-	Roots          []treeRoot[T, U]
+	Roots          []treeRoot[T, U, C]
 	CutPlaneConfig CutPlaneOptions
 	Dim            uint
 	Leafs          uint
@@ -76,78 +141,6 @@ func (bsp *bspTreeIndex[T, U, C]) Add(feature []T, item U) {
 	bsp.ClearIndex()
 }
 
-func (bsp *bspTreeIndex[T, U, C]) buildRoot(ctx context.Context, id uint, env linalg.Env[T]) (treeRoot[T, U], error) {
-	indice := pipeline.ToSlice(ctx, pipeline.Seq(ctx, uint(len(bsp.Elements))))
-	rand.Shuffle(len(indice), func(i, j int) { indice[i], indice[j] = indice[j], indice[i] })
-
-	bsp.Roots[id] = treeRoot[T, U]{
-		Indice: indice,
-		Nodes: []treeNode[T, U]{
-			{
-				Begin: 0,
-				End:   uint(len(indice)),
-			},
-		},
-	}
-	node, err := bsp.buildTree(ctx, indice, 0, id, env)
-	if err != nil {
-		return treeRoot[T, U]{}, err
-	}
-	bsp.Roots[id].Nodes[0] = bsp.Roots[id].Nodes[node]
-
-	return bsp.Roots[id], nil
-}
-
-func (bsp *bspTreeIndex[T, U, C]) buildTree(ctx context.Context, indice []int, offset uint, id uint, env linalg.Env[T]) (uint, error) {
-	nElements := uint(len(indice))
-	if nElements == 0 {
-		return 0, nil
-	}
-
-	if nElements <= bsp.Leafs {
-		node := treeNode[T, U]{
-			Begin: offset,
-			End:   offset + nElements,
-		}
-		nNodes := uint(len(bsp.Roots[id].Nodes))
-		bsp.Roots[id].Nodes = append(bsp.Roots[id].Nodes, node)
-		return nNodes, nil
-	}
-
-	cutPlane, err := (*new(C)).Construct(bsp.Elements, indice, env, bsp.CutPlaneConfig)
-	if err != nil {
-		return 0, err
-	}
-
-	mid := collection.Partition(indice, func(i int) bool {
-		return cutPlane.Evaluate(bsp.Elements[i].Feature, env)
-	})
-	if mid == 0 || mid == uint(len(indice)) {
-		mid = uint(len(indice)) / 2
-	}
-
-	left, err := bsp.buildTree(ctx, indice[:mid], offset, id, env)
-	if err != nil {
-		return 0, err
-	}
-
-	right, err := bsp.buildTree(ctx, indice[mid:], offset+mid, id, env)
-	if err != nil {
-		return 0, err
-	}
-
-	node := treeNode[T, U]{
-		Begin:    offset,
-		End:      offset + nElements,
-		Left:     left,
-		Right:    right,
-		CutPlane: cutPlane,
-	}
-	nNodes := uint(len(bsp.Roots[id].Nodes))
-	bsp.Roots[id].Nodes = append(bsp.Roots[id].Nodes, node)
-	return nNodes, nil
-}
-
 func (bsp *bspTreeIndex[T, U, C]) Build(ctx context.Context) error {
 	if bsp.Empty() {
 		return errors.New("empty pool")
@@ -155,12 +148,12 @@ func (bsp *bspTreeIndex[T, U, C]) Build(ctx context.Context) error {
 
 	env := linalg.NewLinAlgFromContext[T](ctx)
 
-	bsp.Roots = make([]treeRoot[T, U], bsp.Trees)
+	bsp.Roots = make([]treeRoot[T, U, C], bsp.Trees)
 	p := pool.New().WithMaxGoroutines(int(bsp.Procs)).WithErrors()
 	for i := uint(0); i < bsp.Trees; i++ {
 		i := i
 		p.Go(func() error {
-			root, err := bsp.buildRoot(ctx, i, env)
+			root, err := newTreeRoot[T, U, C](bsp.Elements, bsp.Leafs, env, bsp.CutPlaneConfig)
 			if err != nil {
 				return err
 			}
@@ -220,7 +213,6 @@ func (bsp *bspTreeIndex[T, U, C]) SearchChannel(ctx context.Context, query []T) 
 		}
 
 		for 0 < queue.Len() {
-			//log.Print("queue.Len()", queue.Len())
 			nodeWithPriority, err := queue.PopWithPriority()
 			if err != nil {
 				continue
@@ -228,7 +220,6 @@ func (bsp *bspTreeIndex[T, U, C]) SearchChannel(ctx context.Context, query []T) 
 
 			ri := nodeWithPriority.Item.RootIdx
 			root := bsp.Roots[ri]
-			//log.Println("root", ri, "node", nodeWithPriority.Item.NodeIdx, "priority", nodeWithPriority.Priority, "len(queue)", queue.Len(), "len(outputStream)", len(outputStream), "len(root.Nodes)", len(root.Nodes))
 			node := root.Nodes[nodeWithPriority.Item.NodeIdx]
 			if node.Left == 0 && node.Right == 0 {
 				for i := node.Begin; i < node.End; i++ {

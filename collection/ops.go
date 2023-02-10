@@ -17,5 +17,10 @@ func Partition[T any](buf []T, predicate func(T) bool) uint {
 			buf[i], buf[j] = buf[j], buf[i]
 		}
 	}
+
+	if i == 0 || i == len(buf) {
+		i = len(buf) / 2
+	}
+
 	return uint(i)
 }

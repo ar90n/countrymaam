@@ -13,6 +13,7 @@ import (
 	"github.com/ar90n/countrymaam/collection"
 	"github.com/ar90n/countrymaam/linalg"
 	"github.com/ar90n/countrymaam/pipeline"
+	"github.com/sourcegraph/conc/pool"
 )
 
 const streamBufferSize = 64
@@ -154,31 +155,21 @@ func (bsp *bspTreeIndex[T, U, C]) Build(ctx context.Context) error {
 
 	env := linalg.NewLinAlgFromContext[T](ctx)
 
-	taskStream := pipeline.Seq(ctx, bsp.Trees)
-	rootStream := make(chan result[treeRoot[T, U]])
-	defer close(rootStream)
-
 	bsp.Roots = make([]treeRoot[T, U], bsp.Trees)
-	for i := uint(0); i < bsp.Procs; i++ {
-		go func() {
-			for t := range taskStream {
-				root, err := bsp.buildRoot(ctx, uint(t), env)
-				rootStream <- result[treeRoot[T, U]]{Value: root, Error: err}
+	p := pool.New().WithMaxGoroutines(int(bsp.Procs)).WithErrors()
+	for i := uint(0); i < bsp.Trees; i++ {
+		i := i
+		p.Go(func() error {
+			root, err := bsp.buildRoot(ctx, i, env)
+			if err != nil {
+				return err
 			}
-		}()
+			bsp.Roots[i] = root
+			return nil
+		})
 	}
 
-	i := 0
-	for uint(i) < bsp.Trees {
-		ret := <-rootStream
-		if ret.Error != nil {
-			return ret.Error
-		}
-
-		bsp.Roots[i] = ret.Value
-		i++
-	}
-	return nil
+	return p.Wait()
 }
 
 func (bsp *bspTreeIndex[T, U, C]) Search(ctx context.Context, query []T, n uint, maxCandidates uint) ([]Candidate[U], error) {
@@ -229,6 +220,7 @@ func (bsp *bspTreeIndex[T, U, C]) SearchChannel(ctx context.Context, query []T) 
 		}
 
 		for 0 < queue.Len() {
+			//log.Print("queue.Len()", queue.Len())
 			nodeWithPriority, err := queue.PopWithPriority()
 			if err != nil {
 				continue
@@ -236,6 +228,7 @@ func (bsp *bspTreeIndex[T, U, C]) SearchChannel(ctx context.Context, query []T) 
 
 			ri := nodeWithPriority.Item.RootIdx
 			root := bsp.Roots[ri]
+			//log.Println("root", ri, "node", nodeWithPriority.Item.NodeIdx, "priority", nodeWithPriority.Priority, "len(queue)", queue.Len(), "len(outputStream)", len(outputStream), "len(root.Nodes)", len(root.Nodes))
 			node := root.Nodes[nodeWithPriority.Item.NodeIdx]
 			if node.Left == 0 && node.Right == 0 {
 				for i := node.Begin; i < node.End; i++ {

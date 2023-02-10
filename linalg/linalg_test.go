@@ -159,25 +159,25 @@ func Test_SqDistU8(t *testing.T) {
 }
 
 type TestNewLinAlgTestCase struct {
-	Name    string
-	Options LinAlgOptions
-	Skip    bool
+	Name   string
+	Config Config
+	Skip   bool
 }
 
-func testNewLinAlgImpl[T Number](t *testing.T, f func(LinAlgOptions) Env[T], suffix string) {
+func testNewLinAlgImpl[T Number](t *testing.T, f func(Config) Env[T], suffix string) {
 
 	for _, tc := range []TestNewLinAlgTestCase{
 		{
-			Name:    fmt.Sprintf("vanilla_%s", suffix),
-			Options: LinAlgOptions{},
-			Skip:    false,
+			Name: fmt.Sprintf("vanilla_%s", suffix),
+			Config: Config{
+				DisableAVX2: true,
+			},
+			Skip: false,
 		},
 		{
-			Name: fmt.Sprintf("avx2_%s", suffix),
-			Options: LinAlgOptions{
-				UseAVX2: true,
-			},
-			Skip: true,
+			Name:   fmt.Sprintf("avx2_%s", suffix),
+			Config: Config{},
+			Skip:   true,
 		},
 	} {
 		if tc.Skip {
@@ -185,7 +185,7 @@ func testNewLinAlgImpl[T Number](t *testing.T, f func(LinAlgOptions) Env[T], suf
 			continue
 		}
 
-		f(tc.Options)
+		f(tc.Config)
 	}
 }
 

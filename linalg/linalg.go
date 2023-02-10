@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"github.com/ar90n/countrymaam/linalg/asm"
+	"golang.org/x/sys/cpu"
 )
 
 const linAlgKey = "linAlg"
@@ -16,29 +17,29 @@ type Env[T Number] struct {
 	DotWithF32  func(x []T, y []float32) float32
 }
 
-type LinAlgOptions struct {
-	UseAVX2 bool
+type Config struct {
+	DisableAVX2 bool
 }
 
-func WithLinAlg(ctx context.Context, options LinAlgOptions) context.Context {
-	return context.WithValue(ctx, linAlgKey, options)
+func WithLinAlg(ctx context.Context, conf Config) context.Context {
+	return context.WithValue(ctx, linAlgKey, conf)
 }
 
 func NewLinAlgFromContext[T Number](ctx context.Context) Env[T] {
-	if opts := ctx.Value(linAlgKey); opts != nil {
-		return NewLinAlg[T](opts.(LinAlgOptions))
+	if conf := ctx.Value(linAlgKey); conf != nil {
+		return NewLinAlg[T](conf.(Config))
 	}
 
-	return NewLinAlg[T](LinAlgOptions{})
+	return NewLinAlg[T](Config{})
 }
 
-func NewLinAlg[T Number](options LinAlgOptions) Env[T] {
+func NewLinAlg[T Number](conf Config) Env[T] {
 	if reflect.ValueOf(*new(T)).Kind() == reflect.Float32 {
-		return newLinAlgF32(options).(Env[T])
+		return newLinAlgF32(conf).(Env[T])
 	}
 
 	if reflect.ValueOf(*new(T)).Kind() == reflect.Uint8 {
-		return newLinAlgUint8(options).(Env[T])
+		return newLinAlgUint8(conf).(Env[T])
 	}
 
 	return Env[T]{
@@ -49,8 +50,8 @@ func NewLinAlg[T Number](options LinAlgOptions) Env[T] {
 	}
 }
 
-func newLinAlgF32(options LinAlgOptions) interface{} {
-	if options.UseAVX2 {
+func newLinAlgF32(conf Config) interface{} {
+	if cpu.X86.HasAVX2 && !conf.DisableAVX2 {
 		return Env[float32]{
 			SqL2:        asm.SqL2F32AVX2,
 			SqL2WithF32: asm.SqL2F32AVX2,
@@ -67,8 +68,8 @@ func newLinAlgF32(options LinAlgOptions) interface{} {
 	}
 }
 
-func newLinAlgUint8(options LinAlgOptions) interface{} {
-	if options.UseAVX2 {
+func newLinAlgUint8(options Config) interface{} {
+	if cpu.X86.HasAVX2 && !options.DisableAVX2 {
 		return Env[uint8]{
 			SqL2:        asm.SqL2Uint8AVX2,
 			SqL2WithF32: sqL2[uint8, float32],

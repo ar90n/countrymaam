@@ -10,7 +10,6 @@ import (
 	"strconv"
 
 	"github.com/ar90n/countrymaam"
-	"github.com/ar90n/countrymaam/linalg"
 )
 
 //go:embed dim064.csv
@@ -45,7 +44,6 @@ func readFeatures(dim uint) ([][]uint8, error) {
 
 func main() {
 	dim := uint(64)
-	opts := linalg.LinAlgOptions{}
 	ctx := context.Background()
 	index := countrymaam.NewKdTreeIndex[uint8, int](
 		countrymaam.TreeConfig{
@@ -56,8 +54,7 @@ func main() {
 			Dim:   dim,
 			Leafs: 8,
 			Trees: 8,
-		},
-		opts)
+		})
 
 	features, err := readFeatures(dim)
 	if err != nil {

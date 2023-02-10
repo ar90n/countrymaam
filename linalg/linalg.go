@@ -1,10 +1,13 @@
 package linalg
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/ar90n/countrymaam/linalg/asm"
 )
+
+const linAlgKey = "linAlg"
 
 type Env[T Number] struct {
 	SqL2        func(x, y []T) float32
@@ -15,6 +18,18 @@ type Env[T Number] struct {
 
 type LinAlgOptions struct {
 	UseAVX2 bool
+}
+
+func WithLinAlg(ctx context.Context, options LinAlgOptions) context.Context {
+	return context.WithValue(ctx, linAlgKey, options)
+}
+
+func NewLinAlgFromContext[T Number](ctx context.Context) Env[T] {
+	if opts := ctx.Value(linAlgKey); opts != nil {
+		return NewLinAlg[T](opts.(LinAlgOptions))
+	}
+
+	return NewLinAlg[T](LinAlgOptions{})
 }
 
 func NewLinAlg[T Number](options LinAlgOptions) Env[T] {

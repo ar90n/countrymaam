@@ -16,7 +16,6 @@ type flatIndex[T linalg.Number, U comparable] struct {
 	Dim      uint
 	Features [][]T
 	Items    []U
-	env      linalg.Env[T]
 	nProc    uint
 }
 
@@ -52,6 +51,8 @@ func (fi flatIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-chan C
 	go func() {
 		defer close(featStream)
 
+		env := linalg.NewLinAlgFromContext[T](ctx)
+
 		wg := sync.WaitGroup{}
 		for c := range fi.getChunks() {
 			wg.Add(1)
@@ -59,7 +60,7 @@ func (fi flatIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-chan C
 				defer wg.Done()
 
 				for i := c.Begin; i < c.End; i++ {
-					distance := float64(fi.env.SqL2(query, fi.Features[i]))
+					distance := float64(env.SqL2(query, fi.Features[i]))
 					select {
 					case <-ctx.Done():
 						return
@@ -138,22 +139,19 @@ func (fi flatIndex[T, U]) getChunks() <-chan chunk {
 	return ch
 }
 
-func NewFlatIndex[T linalg.Number, U comparable](dim uint, opts linalg.LinAlgOptions) *flatIndex[T, U] {
-	env := linalg.NewLinAlg[T](opts)
+func NewFlatIndex[T linalg.Number, U comparable](dim uint) *flatIndex[T, U] {
 	return &flatIndex[T, U]{
 		Dim:      dim,
 		Features: make([][]T, 0),
 		Items:    make([]U, 0),
-		env:      env,
 	}
 }
 
-func LoadFlatIndex[T linalg.Number, U comparable](r io.Reader, opts linalg.LinAlgOptions) (*flatIndex[T, U], error) {
+func LoadFlatIndex[T linalg.Number, U comparable](r io.Reader) (*flatIndex[T, U], error) {
 	index, err := loadIndex[flatIndex[T, U]](r)
 	if err != nil {
 		return nil, err
 	}
-	index.env = linalg.NewLinAlg[T](opts)
 
 	return &index, nil
 }

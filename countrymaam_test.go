@@ -42,19 +42,17 @@ func TestSearchKNNVectors(t *testing.T) {
 
 	dataset := getDataset1()
 	datasetDim := uint(len(dataset[0]))
-	opts := linalg.LinAlgOptions{}
 	for _, alg := range []Algorithm{
 		{
 			"FlatIndex",
-			NewFlatIndex[float32, int](datasetDim, opts),
+			NewFlatIndex[float32, int](datasetDim),
 		},
 		{
 			"KDTreeIndex-Leafs:1-Trees:1",
 			NewKdTreeIndex[float32, int](
 				TreeConfig{
 					Dim: datasetDim,
-				},
-				opts),
+				}),
 		},
 		{
 			"KDTreeIndex-Leafs:5-Trees:1",
@@ -62,8 +60,7 @@ func TestSearchKNNVectors(t *testing.T) {
 				TreeConfig{
 					Dim:   datasetDim,
 					Leafs: 5,
-				},
-				opts),
+				}),
 		},
 		{
 			"KDTreeIndex-Leafs:1-Trees5",
@@ -75,8 +72,7 @@ func TestSearchKNNVectors(t *testing.T) {
 					},
 					Dim:   datasetDim,
 					Trees: 5,
-				},
-				opts),
+				}),
 		},
 		{
 			"RpTreeIndex-Leafs:1",
@@ -86,8 +82,7 @@ func TestSearchKNNVectors(t *testing.T) {
 						Features: 32,
 					},
 					Dim: datasetDim,
-				},
-				opts),
+				}),
 		},
 		{
 			"RpTreeIndex-Leafs:5",
@@ -98,8 +93,7 @@ func TestSearchKNNVectors(t *testing.T) {
 					},
 					Dim:   datasetDim,
 					Leafs: 5,
-				},
-				opts),
+				}),
 		},
 		{
 			"RpTreeIndex-Leafs:1-Trees:5",
@@ -110,8 +104,7 @@ func TestSearchKNNVectors(t *testing.T) {
 					},
 					Dim:   datasetDim,
 					Trees: 5,
-				},
-				opts),
+				}),
 		},
 	} {
 		t.Run(alg.Name, func(t *testing.T) {
@@ -183,17 +176,14 @@ func TestRebuildIndex(t *testing.T) {
 
 	dataset := getDataset1()
 	datasetDim := uint(len(dataset[0]))
-	opts := linalg.LinAlgOptions{}
 	for _, alg := range []Algorithm{
 		{
 			"FlatIndex",
-			NewFlatIndex[float32, int](datasetDim, opts),
+			NewFlatIndex[float32, int](datasetDim),
 		},
 		{
 			"KDTreeIndex",
-			NewKdTreeIndex[float32, int](
-				TreeConfig{Dim: datasetDim},
-				opts),
+			NewKdTreeIndex[float32, int](TreeConfig{Dim: datasetDim}),
 		},
 		{
 			"RandomizedKDTreeIndex",
@@ -206,8 +196,7 @@ func TestRebuildIndex(t *testing.T) {
 					Dim:   datasetDim,
 					Leafs: 1,
 					Trees: 5,
-				},
-				opts),
+				}),
 		},
 	} {
 		t.Run(alg.Name, func(t *testing.T) {
@@ -272,11 +261,10 @@ func TestBuildIndexWhenPoolIsEmpty(t *testing.T) {
 
 	dataset := getDataset1()
 	datasetDim := uint(len(dataset[0]))
-	opts := linalg.LinAlgOptions{}
 	for _, alg := range []TestCase{
 		{
 			"FlatIndex",
-			NewFlatIndex[float32, int](datasetDim, opts),
+			NewFlatIndex[float32, int](datasetDim),
 			true,
 		},
 		{
@@ -285,8 +273,7 @@ func TestBuildIndexWhenPoolIsEmpty(t *testing.T) {
 				TreeConfig{
 					Dim:   datasetDim,
 					Leafs: 1,
-				},
-				opts),
+				}),
 			false,
 		},
 		{
@@ -296,8 +283,7 @@ func TestBuildIndexWhenPoolIsEmpty(t *testing.T) {
 					Dim:   datasetDim,
 					Leafs: 1,
 					Trees: 5,
-				},
-				opts),
+				}),
 			false,
 		},
 	} {
@@ -325,8 +311,7 @@ func testSerDes[T linalg.Number, I Index[T, int]](t *testing.T, index I, dataset
 		return err
 	}
 
-	opts := linalg.LinAlgOptions{}
-	index2, err := LoadFlatIndex[float32, int](byteBuffer, opts)
+	index2, err := LoadFlatIndex[float32, int](byteBuffer)
 	if err != nil {
 		return err
 	}
@@ -354,27 +339,26 @@ func TestSerDesKNNVectors(t *testing.T) {
 		{1.954, -1.708, -0.423, -2.241, 1.272, -0.253, -1.013, -0.382},
 	}
 	datasetDim := uint(len(dataset[0]))
-	opts := linalg.LinAlgOptions{}
 
 	t.Run("FlatIndex", func(t *testing.T) {
-		testSerDes(t, NewFlatIndex[float32, int](datasetDim, opts), dataset)
+		testSerDes(t, NewFlatIndex[float32, int](datasetDim), dataset)
 	})
 	t.Run("KdTreeIndex-Leafs:1", func(t *testing.T) {
-		testSerDes(t, NewKdTreeIndex[float32, int](TreeConfig{Dim: datasetDim, Leafs: 1}, opts), dataset)
+		testSerDes(t, NewKdTreeIndex[float32, int](TreeConfig{Dim: datasetDim, Leafs: 1}), dataset)
 	})
 	t.Run("KDTreeIndex-Leafs:5", func(t *testing.T) {
-		testSerDes(t, NewKdTreeIndex[float32, int](TreeConfig{Dim: datasetDim, Leafs: 5}, opts), dataset)
+		testSerDes(t, NewKdTreeIndex[float32, int](TreeConfig{Dim: datasetDim, Leafs: 5}), dataset)
 	})
 	t.Run("KDTreeIndex-Leafs:1-Trees:5", func(t *testing.T) {
-		testSerDes(t, NewKdTreeIndex[float32, int](TreeConfig{CutPlaneOptions: CutPlaneOptions{Features: 100, Candidates: 5}, Dim: datasetDim, Leafs: 1, Trees: 5}, opts), dataset)
+		testSerDes(t, NewKdTreeIndex[float32, int](TreeConfig{CutPlaneOptions: CutPlaneOptions{Features: 100, Candidates: 5}, Dim: datasetDim, Leafs: 1, Trees: 5}), dataset)
 	})
 	t.Run("RpTreeIndex-Leafs:1", func(t *testing.T) {
-		testSerDes(t, NewRpTreeIndex[float32, int](TreeConfig{Dim: datasetDim, Leafs: 1}, opts), dataset)
+		testSerDes(t, NewRpTreeIndex[float32, int](TreeConfig{Dim: datasetDim, Leafs: 1}), dataset)
 	})
 	t.Run("RpTreeIndex-Leafs:5", func(t *testing.T) {
-		testSerDes(t, NewRpTreeIndex[float32, int](TreeConfig{Dim: datasetDim, Leafs: 5}, opts), dataset)
+		testSerDes(t, NewRpTreeIndex[float32, int](TreeConfig{Dim: datasetDim, Leafs: 5}), dataset)
 	})
 	t.Run("RpTreeIndex-Leafs:1-Trees:5", func(t *testing.T) {
-		testSerDes(t, NewRpTreeIndex[float32, int](TreeConfig{CutPlaneOptions: CutPlaneOptions{Features: 32}, Dim: datasetDim, Leafs: 1, Trees: 5}, opts), dataset)
+		testSerDes(t, NewRpTreeIndex[float32, int](TreeConfig{CutPlaneOptions: CutPlaneOptions{Features: 32}, Dim: datasetDim, Leafs: 1, Trees: 5}), dataset)
 	})
 }

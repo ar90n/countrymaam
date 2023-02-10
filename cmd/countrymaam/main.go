@@ -21,17 +21,16 @@ type Query[T linalg.Number] struct {
 	MaxCandidates uint
 }
 
-func createIndex[T linalg.Number, U comparable](index string, nDim uint, leafSize uint, nTrees uint, opts linalg.LinAlgOptions) (countrymaam.Index[T, U], error) {
+func createIndex[T linalg.Number, U comparable](index string, nDim uint, leafSize uint, nTrees uint) (countrymaam.Index[T, U], error) {
 	switch index {
 	case "flat":
-		return countrymaam.NewFlatIndex[T, U](nDim, opts), nil
+		return countrymaam.NewFlatIndex[T, U](nDim), nil
 	case "kd-tree":
 		return countrymaam.NewKdTreeIndex[T, U](
 			countrymaam.TreeConfig{
 				Dim:   nDim,
 				Leafs: leafSize,
-			},
-			opts), nil
+			}), nil
 	case "rkd-tree":
 		return countrymaam.NewKdTreeIndex[T, U](
 			countrymaam.TreeConfig{
@@ -42,15 +41,13 @@ func createIndex[T linalg.Number, U comparable](index string, nDim uint, leafSiz
 				Dim:   nDim,
 				Leafs: leafSize,
 				Trees: nTrees,
-			},
-			opts), nil
+			}), nil
 	case "rp-tree":
 		return countrymaam.NewRpTreeIndex[T, U](
 			countrymaam.TreeConfig{
 				Dim:   nDim,
 				Leafs: leafSize,
-			},
-			opts), nil
+			}), nil
 	case "rrp-tree":
 		return countrymaam.NewRpTreeIndex[T, U](
 			countrymaam.TreeConfig{
@@ -60,14 +57,13 @@ func createIndex[T linalg.Number, U comparable](index string, nDim uint, leafSiz
 				Dim:   nDim,
 				Leafs: leafSize,
 				Trees: nTrees,
-			},
-			opts), nil
+			}), nil
 	default:
 		return nil, fmt.Errorf("unknown index name: %s", index)
 	}
 }
 
-func loadIndex[T linalg.Number, U comparable](index string, inputPath string, opts linalg.LinAlgOptions) (countrymaam.Index[T, U], error) {
+func loadIndex[T linalg.Number, U comparable](index string, inputPath string) (countrymaam.Index[T, U], error) {
 	file, err := os.Open(inputPath)
 	if err != nil {
 		return nil, err
@@ -76,15 +72,15 @@ func loadIndex[T linalg.Number, U comparable](index string, inputPath string, op
 
 	switch index {
 	case "flat":
-		return countrymaam.LoadFlatIndex[T, U](file, opts)
+		return countrymaam.LoadFlatIndex[T, U](file)
 	case "kd-tree":
-		return countrymaam.LoadKdTreeIndex[T, U](file, opts)
+		return countrymaam.LoadKdTreeIndex[T, U](file)
 	case "rkd-tree":
-		return countrymaam.LoadKdTreeIndex[T, U](file, opts)
+		return countrymaam.LoadKdTreeIndex[T, U](file)
 	case "rp-tree":
-		return countrymaam.LoadRpTreeIndex[T, U](file, opts)
+		return countrymaam.LoadRpTreeIndex[T, U](file)
 	case "rrp-tree":
-		return countrymaam.LoadRpTreeIndex[T, U](file, opts)
+		return countrymaam.LoadRpTreeIndex[T, U](file)
 	default:
 		return nil, fmt.Errorf("unknown index name: %s", index)
 	}
@@ -162,8 +158,7 @@ func train[T linalg.Number](nDim uint, indexName string, leafSize uint, outputNa
 	}
 
 	ctx := context.Background()
-	opts := linalg.LinAlgOptions{UseAVX2: true}
-	index, err := createIndex[T, int](indexName, nDim, leafSize, nTrees, opts)
+	index, err := createIndex[T, int](indexName, nDim, leafSize, nTrees)
 	if err != nil {
 		return err
 	}
@@ -236,8 +231,7 @@ func predict[T linalg.Number](nDim uint, indexName string, inputName string, pro
 	}
 
 	ctx := context.Background()
-	opts := linalg.LinAlgOptions{UseAVX2: true}
-	index, err := loadIndex[T, int](indexName, inputName, opts)
+	index, err := loadIndex[T, int](indexName, inputName)
 	if err != nil {
 		return err
 	}

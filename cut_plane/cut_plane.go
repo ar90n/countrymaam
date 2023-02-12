@@ -1,4 +1,4 @@
-package countrymaam
+package cut_plane
 
 import (
 	"errors"
@@ -6,18 +6,9 @@ import (
 	"math/rand"
 
 	"github.com/ar90n/countrymaam/collection"
+	"github.com/ar90n/countrymaam/index"
 	"github.com/ar90n/countrymaam/linalg"
 )
-
-type CutPlaneFactory[T linalg.Number, U comparable] interface {
-	Default() CutPlane[T, U]
-	Build(elements []treeElement[T, U], indice []int, env linalg.Env[T]) (CutPlane[T, U], error)
-}
-
-type CutPlane[T linalg.Number, U comparable] interface {
-	Evaluate(feature []T, env linalg.Env[T]) bool
-	Distance(feature []T, env linalg.Env[T]) float64
-}
 
 // kdCutPlane is a cut plane that is constructed by kdtree algorithm.
 // this is derived from flann library.
@@ -53,18 +44,18 @@ type kdCutPlaneFactory[T linalg.Number, U comparable] struct {
 	candidates uint
 }
 
-func NewKdCutPlaneFactory[T linalg.Number, U comparable](features, candidates uint) CutPlaneFactory[T, U] {
+func NewKdCutPlaneFactory[T linalg.Number, U comparable](features, candidates uint) index.CutPlaneFactory[T, U] {
 	return kdCutPlaneFactory[T, U]{
 		features:   features,
 		candidates: candidates,
 	}
 }
 
-func (f kdCutPlaneFactory[T, U]) Default() CutPlane[T, U] {
+func (f kdCutPlaneFactory[T, U]) Default() index.CutPlane[T, U] {
 	return kdCutPlane[T, U]{}
 }
 
-func (f kdCutPlaneFactory[T, U]) Build(elements []treeElement[T, U], indice []int, env linalg.Env[T]) (CutPlane[T, U], error) {
+func (f kdCutPlaneFactory[T, U]) Build(elements []index.TreeElement[T, U], indice []int, env linalg.Env[T]) (index.CutPlane[T, U], error) {
 	if len(indice) == 0 {
 		return nil, errors.New("elements is empty")
 	}
@@ -115,15 +106,15 @@ type rpCutPlaneFactory[T linalg.Number, U comparable] struct {
 	features uint
 }
 
-func NewRpCutPlaneFactory[T linalg.Number, U comparable](features uint) CutPlaneFactory[T, U] {
+func NewRpCutPlaneFactory[T linalg.Number, U comparable](features uint) index.CutPlaneFactory[T, U] {
 	return rpCutPlaneFactory[T, U]{features: features}
 }
 
-func (f rpCutPlaneFactory[T, U]) Default() CutPlane[T, U] {
+func (f rpCutPlaneFactory[T, U]) Default() index.CutPlane[T, U] {
 	return rpCutPlane[T, U]{}
 }
 
-func (f rpCutPlaneFactory[T, U]) Build(elements []treeElement[T, U], indice []int, env linalg.Env[T]) (CutPlane[T, U], error) {
+func (f rpCutPlaneFactory[T, U]) Build(elements []index.TreeElement[T, U], indice []int, env linalg.Env[T]) (index.CutPlane[T, U], error) {
 	if len(indice) == 0 {
 		return nil, errors.New("elements is empty")
 	}

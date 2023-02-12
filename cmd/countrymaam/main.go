@@ -11,6 +11,8 @@ import (
 	"runtime/pprof"
 
 	"github.com/ar90n/countrymaam"
+	"github.com/ar90n/countrymaam/cut_plane"
+	"github.com/ar90n/countrymaam/index"
 	"github.com/ar90n/countrymaam/linalg"
 	"github.com/urfave/cli/v2"
 )
@@ -21,71 +23,69 @@ type Query[T linalg.Number] struct {
 	MaxCandidates uint
 }
 
-func createIndex[T linalg.Number, U comparable](index string, nDim uint, leafSize uint, nTrees uint) (countrymaam.Index[T, U], error) {
-	switch index {
+func createIndex[T linalg.Number, U comparable](ind string, nDim uint, leafSize uint, nTrees uint) (countrymaam.Index[T, U], error) {
+	switch ind {
 	case "flat":
-		return countrymaam.NewFlatIndex[T, U](nDim), nil
+		return index.NewFlatIndex[T, U](nDim), nil
 	case "kd-tree":
-		return countrymaam.NewKdTreeIndex[T, U](
-			countrymaam.TreeConfig{
+		return index.NewTreeIndex(
+			index.TreeConfig{
 				Dim:   nDim,
 				Leafs: leafSize,
 			},
-			0,
-			0,
+			cut_plane.NewKdCutPlaneFactory[T, U](0, 0),
 		)
 	case "rkd-tree":
-		return countrymaam.NewKdTreeIndex[T, U](
-			countrymaam.TreeConfig{
+		return index.NewTreeIndex(
+			index.TreeConfig{
 				Dim:   nDim,
 				Leafs: leafSize,
 				Trees: nTrees,
 			},
-			100,
-			5,
+			cut_plane.NewKdCutPlaneFactory[T, U](100, 5),
 		)
 	case "rp-tree":
-		return countrymaam.NewRpTreeIndex[T, U](
-			countrymaam.TreeConfig{
+		return index.NewTreeIndex(
+			index.TreeConfig{
 				Dim:   nDim,
 				Leafs: leafSize,
 			},
-			0,
+			cut_plane.NewRpCutPlaneFactory[T, U](0),
 		)
 	case "rrp-tree":
-		return countrymaam.NewRpTreeIndex[T, U](
-			countrymaam.TreeConfig{
+		return index.NewTreeIndex(
+			index.TreeConfig{
 				Dim:   nDim,
 				Leafs: leafSize,
 				Trees: nTrees,
 			},
-			32,
+			cut_plane.NewRpCutPlaneFactory[T, U](32),
 		)
 	default:
-		return nil, fmt.Errorf("unknown index name: %s", index)
+		return nil, fmt.Errorf("unknown index name: %s", ind)
 	}
 }
 
-func loadIndex[T linalg.Number, U comparable](index string, inputPath string) (countrymaam.Index[T, U], error) {
+func loadIndex[T linalg.Number, U comparable](ind string, inputPath string) (countrymaam.Index[T, U], error) {
 	file, err := os.Open(inputPath)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	switch index {
+	switch ind {
 	case "flat":
-		return countrymaam.LoadFlatIndex[T, U](file)
+		return index.LoadFlatIndex[T, U](file)
 	case "kd-tree":
-		return countrymaam.LoadKdTreeIndex[T, U](file)
+		return index.LoadTreeIndex(file, cut_plane.NewKdCutPlaneFactory[T, U](0, 0))
 	case "rkd-tree":
-		return countrymaam.LoadKdTreeIndex[T, U](file)
+		return index.LoadTreeIndex(file, cut_plane.NewKdCutPlaneFactory[T, U](0, 0))
 	case "rp-tree":
-		return countrymaam.LoadRpTreeIndex[T, U](file)
+		return index.LoadTreeIndex(file, cut_plane.NewRpCutPlaneFactory[T, U](0))
 	case "rrp-tree":
-		return countrymaam.LoadRpTreeIndex[T, U](file)
+		return index.LoadTreeIndex(file, cut_plane.NewRpCutPlaneFactory[T, U](0))
 	default:
-		return nil, fmt.Errorf("unknown index name: %s", index)
+		return nil, fmt.Errorf("unknown index name: %s", ind)
 	}
 }
 

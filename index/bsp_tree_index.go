@@ -1,4 +1,4 @@
-package countrymaam
+package index
 
 import (
 	"context"
@@ -19,7 +19,17 @@ const streamBufferSize = 64
 const queueCapcitySize = 64
 const defaultLeafs = 16
 
-type treeElement[T linalg.Number, U comparable] struct {
+type CutPlaneFactory[T linalg.Number, U comparable] interface {
+	Default() CutPlane[T, U]
+	Build(elements []TreeElement[T, U], indice []int, env linalg.Env[T]) (CutPlane[T, U], error)
+}
+
+type CutPlane[T linalg.Number, U comparable] interface {
+	Evaluate(feature []T, env linalg.Env[T]) bool
+	Distance(feature []T, env linalg.Env[T]) float64
+}
+
+type TreeElement[T linalg.Number, U comparable] struct {
 	Feature []T
 	Item    U
 }
@@ -44,7 +54,7 @@ func (r *treeRoot[T, U]) addNode(node treeNode[T, U]) uint {
 	return nc
 }
 
-func (r *treeRoot[T, U]) Build(elements []treeElement[T, U], indice []int, leafs, offset uint, env linalg.Env[T], cf CutPlaneFactory[T, U]) (uint, error) {
+func (r *treeRoot[T, U]) Build(elements []TreeElement[T, U], indice []int, leafs, offset uint, env linalg.Env[T], cf CutPlaneFactory[T, U]) (uint, error) {
 	ec := uint(len(indice))
 	if ec == 0 {
 		return 0, nil
@@ -84,7 +94,7 @@ func (r *treeRoot[T, U]) Build(elements []treeElement[T, U], indice []int, leafs
 	return curIdx, nil
 }
 
-func newTreeRoot[T linalg.Number, U comparable](elements []treeElement[T, U], leafs uint, env linalg.Env[T], cpf CutPlaneFactory[T, U]) (treeRoot[T, U], error) {
+func newTreeRoot[T linalg.Number, U comparable](elements []TreeElement[T, U], leafs uint, env linalg.Env[T], cpf CutPlaneFactory[T, U]) (treeRoot[T, U], error) {
 	indice := make([]int, len(elements))
 	for i := range indice {
 		indice[i] = i
@@ -111,7 +121,7 @@ type TreeConfig struct {
 }
 
 type bspTreeIndex[T linalg.Number, U comparable] struct {
-	Elements []treeElement[T, U]
+	Elements []TreeElement[T, U]
 	Roots    []treeRoot[T, U]
 	cpf      CutPlaneFactory[T, U]
 	Dim      uint
@@ -133,7 +143,7 @@ type result[T any] struct {
 var _ = (*bspTreeIndex[float32, int])(nil)
 
 func (bsp *bspTreeIndex[T, U]) Add(feature []T, item U) {
-	bsp.Elements = append(bsp.Elements, treeElement[T, U]{
+	bsp.Elements = append(bsp.Elements, TreeElement[T, U]{
 		Item:    item,
 		Feature: feature,
 	})
@@ -271,21 +281,21 @@ func (bsp bspTreeIndex[T, U]) Save(w io.Writer) error {
 	return saveIndex(bsp, w)
 }
 
-func NewKdTreeIndex[T linalg.Number, U comparable](config TreeConfig, features, candidates uint) (*bspTreeIndex[T, U], error) {
-	return NewTreeIndex(config, NewKdCutPlaneFactory[T, U](features, candidates))
-}
-
-func LoadKdTreeIndex[T linalg.Number, U comparable](r io.Reader) (*bspTreeIndex[T, U], error) {
-	return LoadTreeIndex(r, NewKdCutPlaneFactory[T, U](0, 0))
-}
-
-func NewRpTreeIndex[T linalg.Number, U comparable](config TreeConfig, features uint) (*bspTreeIndex[T, U], error) {
-	return NewTreeIndex(config, NewRpCutPlaneFactory[T, U](features))
-}
-
-func LoadRpTreeIndex[T linalg.Number, U comparable](r io.Reader) (*bspTreeIndex[T, U], error) {
-	return LoadTreeIndex(r, NewRpCutPlaneFactory[T, U](0))
-}
+//func NewKdTreeIndex[T linalg.Number, U comparable](config TreeConfig, features, candidates uint) (*bspTreeIndex[T, U], error) {
+//	return NewTreeIndex(config, NewKdCutPlaneFactory[T, U](features, candidates))
+//}
+//
+//func LoadKdTreeIndex[T linalg.Number, U comparable](r io.Reader) (*bspTreeIndex[T, U], error) {
+//	return LoadTreeIndex(r, NewKdCutPlaneFactory[T, U](0, 0))
+//}
+//
+//func NewRpTreeIndex[T linalg.Number, U comparable](config TreeConfig, features uint) (*bspTreeIndex[T, U], error) {
+//	return NewTreeIndex(config, NewRpCutPlaneFactory[T, U](features))
+//}
+//
+//func LoadRpTreeIndex[T linalg.Number, U comparable](r io.Reader) (*bspTreeIndex[T, U], error) {
+//	return LoadTreeIndex(r, NewRpCutPlaneFactory[T, U](0))
+//}
 
 func NewTreeIndex[T linalg.Number, U comparable](config TreeConfig, cpf CutPlaneFactory[T, U]) (*bspTreeIndex[T, U], error) {
 	gob.Register(cpf.Default())
@@ -313,7 +323,7 @@ func NewTreeIndex[T linalg.Number, U comparable](config TreeConfig, cpf CutPlane
 	}
 
 	return &bspTreeIndex[T, U]{
-		Elements: make([]treeElement[T, U], 0),
+		Elements: make([]TreeElement[T, U], 0),
 		cpf:      cpf,
 		Dim:      config.Dim,
 		Leafs:    leafs,

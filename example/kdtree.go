@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/ar90n/countrymaam"
+	"github.com/ar90n/countrymaam/cut_plane"
 )
 
 //go:embed dim064.csv
@@ -45,14 +46,13 @@ func readFeatures(dim uint) ([][]uint8, error) {
 func main() {
 	dim := uint(64)
 	ctx := context.Background()
-	index, err := countrymaam.NewKdTreeIndex[uint8, int](
+	index, err := countrymaam.NewTreeIndex(
 		countrymaam.TreeConfig{
 			Dim:   dim,
 			Leafs: 8,
 			Trees: 8,
 		},
-		100,
-		5,
+		cut_plane.NewKdCutPlaneFactory[uint8, int](100, 5),
 	)
 	if err != nil {
 		panic(err)

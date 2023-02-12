@@ -1,4 +1,4 @@
-package countrymaam
+package index
 
 import (
 	"bytes"

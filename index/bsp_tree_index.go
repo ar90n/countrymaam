@@ -281,22 +281,6 @@ func (bsp bspTreeIndex[T, U]) Save(w io.Writer) error {
 	return saveIndex(bsp, w)
 }
 
-//func NewKdTreeIndex[T linalg.Number, U comparable](config TreeConfig, features, candidates uint) (*bspTreeIndex[T, U], error) {
-//	return NewTreeIndex(config, NewKdCutPlaneFactory[T, U](features, candidates))
-//}
-//
-//func LoadKdTreeIndex[T linalg.Number, U comparable](r io.Reader) (*bspTreeIndex[T, U], error) {
-//	return LoadTreeIndex(r, NewKdCutPlaneFactory[T, U](0, 0))
-//}
-//
-//func NewRpTreeIndex[T linalg.Number, U comparable](config TreeConfig, features uint) (*bspTreeIndex[T, U], error) {
-//	return NewTreeIndex(config, NewRpCutPlaneFactory[T, U](features))
-//}
-//
-//func LoadRpTreeIndex[T linalg.Number, U comparable](r io.Reader) (*bspTreeIndex[T, U], error) {
-//	return LoadTreeIndex(r, NewRpCutPlaneFactory[T, U](0))
-//}
-
 func NewTreeIndex[T linalg.Number, U comparable](config TreeConfig, cpf CutPlaneFactory[T, U]) (*bspTreeIndex[T, U], error) {
 	gob.Register(cpf.Default())
 

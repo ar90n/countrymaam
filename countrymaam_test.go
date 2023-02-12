@@ -61,7 +61,7 @@ func TestSearchKNNVectors(t *testing.T) {
 		},
 		{
 			"KDTreeIndex-Leafs:1-Trees:1",
-			mustNewTreeIndex[float32, int](
+			mustNewTreeIndex(
 				index.TreeConfig{
 					Dim: datasetDim,
 				},
@@ -70,7 +70,7 @@ func TestSearchKNNVectors(t *testing.T) {
 		},
 		{
 			"KDTreeIndex-Leafs:5-Trees:1",
-			mustNewTreeIndex[float32, int](
+			mustNewTreeIndex(
 				index.TreeConfig{
 					Dim:   datasetDim,
 					Leafs: 5,
@@ -80,7 +80,7 @@ func TestSearchKNNVectors(t *testing.T) {
 		},
 		{
 			"KDTreeIndex-Leafs:1-Trees5",
-			mustNewTreeIndex[float32, int](
+			mustNewTreeIndex(
 				index.TreeConfig{
 					Dim:   datasetDim,
 					Trees: 5,
@@ -90,7 +90,7 @@ func TestSearchKNNVectors(t *testing.T) {
 		},
 		{
 			"RpTreeIndex-Leafs:1",
-			mustNewTreeIndex[float32, int](
+			mustNewTreeIndex(
 				index.TreeConfig{
 					Dim: datasetDim,
 				},
@@ -99,7 +99,7 @@ func TestSearchKNNVectors(t *testing.T) {
 		},
 		{
 			"RpTreeIndex-Leafs:5",
-			mustNewTreeIndex[float32, int](
+			mustNewTreeIndex(
 				index.TreeConfig{
 					Dim:   datasetDim,
 					Leafs: 5,
@@ -109,7 +109,7 @@ func TestSearchKNNVectors(t *testing.T) {
 		},
 		{
 			"RpTreeIndex-Leafs:1-Trees:5",
-			mustNewTreeIndex[float32, int](
+			mustNewTreeIndex(
 				index.TreeConfig{
 					Dim:   datasetDim,
 					Trees: 5,
@@ -194,11 +194,11 @@ func TestRebuildIndex(t *testing.T) {
 		},
 		{
 			"KDTreeIndex",
-			mustNewTreeIndex[float32, int](index.TreeConfig{Dim: datasetDim}, cut_plane.NewKdCutPlaneFactory[float32, int](0, 0)),
+			mustNewTreeIndex(index.TreeConfig{Dim: datasetDim}, cut_plane.NewKdCutPlaneFactory[float32, int](0, 0)),
 		},
 		{
 			"RandomizedKDTreeIndex",
-			mustNewTreeIndex[float32, int](
+			mustNewTreeIndex(
 				index.TreeConfig{
 					Dim:   datasetDim,
 					Leafs: 1,
@@ -278,7 +278,7 @@ func TestBuildIndexWhenPoolIsEmpty(t *testing.T) {
 		},
 		{
 			"KDTreeIndex",
-			mustNewTreeIndex[float32, int](
+			mustNewTreeIndex(
 				index.TreeConfig{
 					Dim:   datasetDim,
 					Leafs: 1,
@@ -289,7 +289,7 @@ func TestBuildIndexWhenPoolIsEmpty(t *testing.T) {
 		},
 		{
 			"RandomizedKDTreeIndex",
-			mustNewTreeIndex[float32, int](
+			mustNewTreeIndex(
 				index.TreeConfig{
 					Dim:   datasetDim,
 					Leafs: 1,
@@ -357,21 +357,21 @@ func TestSerDesKNNVectors(t *testing.T) {
 		testSerDes(t, index.NewFlatIndex[float32, int](datasetDim), dataset)
 	})
 	t.Run("KdTreeIndex-Leafs:1", func(t *testing.T) {
-		testSerDes(t, mustNewTreeIndex[float32, int](index.TreeConfig{Dim: datasetDim, Leafs: 1}, cut_plane.NewKdCutPlaneFactory[float32, int](0, 0)), dataset)
+		testSerDes(t, mustNewTreeIndex(index.TreeConfig{Dim: datasetDim, Leafs: 1}, cut_plane.NewKdCutPlaneFactory[float32, int](0, 0)), dataset)
 	})
 	t.Run("KDTreeIndex-Leafs:5", func(t *testing.T) {
-		testSerDes(t, mustNewTreeIndex[float32, int](index.TreeConfig{Dim: datasetDim, Leafs: 5}, cut_plane.NewKdCutPlaneFactory[float32, int](0, 0)), dataset)
+		testSerDes(t, mustNewTreeIndex(index.TreeConfig{Dim: datasetDim, Leafs: 5}, cut_plane.NewKdCutPlaneFactory[float32, int](0, 0)), dataset)
 	})
 	t.Run("KDTreeIndex-Leafs:1-Trees:5", func(t *testing.T) {
-		testSerDes(t, mustNewTreeIndex[float32, int](index.TreeConfig{Dim: datasetDim, Leafs: 1, Trees: 5}, cut_plane.NewKdCutPlaneFactory[float32, int](100, 5)), dataset)
+		testSerDes(t, mustNewTreeIndex(index.TreeConfig{Dim: datasetDim, Leafs: 1, Trees: 5}, cut_plane.NewKdCutPlaneFactory[float32, int](100, 5)), dataset)
 	})
 	t.Run("RpTreeIndex-Leafs:1", func(t *testing.T) {
-		testSerDes(t, mustNewTreeIndex[float32, int](index.TreeConfig{Dim: datasetDim, Leafs: 1}, cut_plane.NewRpCutPlaneFactory[float32, int](0)), dataset)
+		testSerDes(t, mustNewTreeIndex(index.TreeConfig{Dim: datasetDim, Leafs: 1}, cut_plane.NewRpCutPlaneFactory[float32, int](0)), dataset)
 	})
 	t.Run("RpTreeIndex-Leafs:5", func(t *testing.T) {
-		testSerDes(t, mustNewTreeIndex[float32, int](index.TreeConfig{Dim: datasetDim, Leafs: 5}, cut_plane.NewRpCutPlaneFactory[float32, int](0)), dataset)
+		testSerDes(t, mustNewTreeIndex(index.TreeConfig{Dim: datasetDim, Leafs: 5}, cut_plane.NewRpCutPlaneFactory[float32, int](0)), dataset)
 	})
 	t.Run("RpTreeIndex-Leafs:1-Trees:5", func(t *testing.T) {
-		testSerDes(t, mustNewTreeIndex[float32, int](index.TreeConfig{Dim: datasetDim, Leafs: 1, Trees: 5}, cut_plane.NewRpCutPlaneFactory[float32, int](32)), dataset)
+		testSerDes(t, mustNewTreeIndex(index.TreeConfig{Dim: datasetDim, Leafs: 1, Trees: 5}, cut_plane.NewRpCutPlaneFactory[float32, int](32)), dataset)
 	})
 }

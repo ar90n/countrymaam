@@ -9,6 +9,11 @@ import (
 	"github.com/ar90n/countrymaam/linalg"
 )
 
+var (
+	_ index.CutPlane[float32, int]        = (*KdCutPlane[float32, int])(nil)
+	_ index.CutPlaneFactory[float32, int] = (*KdCutPlaneFactory[float32, int])(nil)
+)
+
 // KdCutPlane is a cut plane that is constructed by kdtree algorithm.
 // this is derived from flann library.
 // https://github.com/flann-lib/flann/blob/master/src/cpp/flann/algorithms/kdtree_index.h

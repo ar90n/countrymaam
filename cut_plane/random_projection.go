@@ -9,6 +9,11 @@ import (
 	"github.com/ar90n/countrymaam/linalg"
 )
 
+var (
+	_ index.CutPlane[float32, int]        = (*RpCutPlane[float32, int])(nil)
+	_ index.CutPlaneFactory[float32, int] = (*RpCutPlaneFactory[float32, int])(nil)
+)
+
 type RpCutPlane[T linalg.Number, U comparable] struct {
 	normal []float32
 	a      float64

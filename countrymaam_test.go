@@ -61,21 +61,21 @@ func TestSearchKNNVectors(t *testing.T) {
 		},
 		{
 			"KDTreeIndex-Leafs:1-Trees:1",
-			mustNewTreeIndex(
+			mustNewTreeIndex[float32, int](
 				index.TreeConfig{
 					Dim: datasetDim,
 				},
-				cut_plane.NewKdCutPlaneFactory[float32, int](0, 0),
+				cut_plane.KdCutPlaneFactory[float32, int]{},
 			),
 		},
 		{
 			"KDTreeIndex-Leafs:5-Trees:1",
-			mustNewTreeIndex(
+			mustNewTreeIndex[float32, int](
 				index.TreeConfig{
 					Dim:   datasetDim,
 					Leafs: 5,
 				},
-				cut_plane.NewKdCutPlaneFactory[float32, int](0, 0),
+				cut_plane.KdCutPlaneFactory[float32, int]{},
 			),
 		},
 		{

@@ -15,8 +15,8 @@ var (
 )
 
 type RpCutPlane[T linalg.Number, U comparable] struct {
-	normal []float32
-	a      float64
+	Normal []float32
+	A      float64
 }
 
 func (cp RpCutPlane[T, U]) Evaluate(feature []T, env linalg.Env[T]) bool {
@@ -24,7 +24,7 @@ func (cp RpCutPlane[T, U]) Evaluate(feature []T, env linalg.Env[T]) bool {
 }
 
 func (cp RpCutPlane[T, U]) Distance(feature []T, env linalg.Env[T]) float64 {
-	return cp.a + float64(env.DotWithF32(feature, cp.normal))
+	return cp.A + float64(env.DotWithF32(feature, cp.Normal))
 }
 
 type RpCutPlaneFactory[T linalg.Number, U comparable] struct {
@@ -110,8 +110,8 @@ func (f RpCutPlaneFactory[T, U]) Build(elements []index.TreeElement[T, U], indic
 	a /= 2.0
 
 	cutPlane := RpCutPlane[T, U]{
-		normal: normal,
-		a:      a,
+		Normal: normal,
+		A:      a,
 	}
 	return &cutPlane, nil
 }

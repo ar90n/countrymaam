@@ -18,8 +18,8 @@ var (
 // this is derived from flann library.
 // https://github.com/flann-lib/flann/blob/master/src/cpp/flann/algorithms/kdtree_index.h
 type KdCutPlane[T linalg.Number, U comparable] struct {
-	axis  uint
-	value float64
+	Axis  uint
+	Value float64
 }
 
 func (cp KdCutPlane[T, U]) Evaluate(feature []T, env linalg.Env[T]) bool {
@@ -27,7 +27,7 @@ func (cp KdCutPlane[T, U]) Evaluate(feature []T, env linalg.Env[T]) bool {
 }
 
 func (cp KdCutPlane[T, U]) Distance(feature []T, env linalg.Env[T]) float64 {
-	return float64(feature[cp.axis]) - cp.value
+	return float64(feature[cp.Axis]) - cp.Value
 }
 
 type KdCutPlaneFactory[T linalg.Number, U comparable] struct {
@@ -75,8 +75,8 @@ func (f KdCutPlaneFactory[T, U]) Build(elements []index.TreeElement[T, U], indic
 		variance := sqMean - mean*mean
 
 		cutPlane := &KdCutPlane[T, U]{
-			axis:  uint(i),
-			value: mean,
+			Axis:  uint(i),
+			Value: mean,
 		}
 		queue.Push(cutPlane, -float64(variance))
 	}

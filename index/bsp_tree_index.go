@@ -8,8 +8,8 @@ import (
 	"log"
 	"math"
 	"math/rand"
-	"runtime"
 
+	"github.com/ar90n/countrymaam"
 	"github.com/ar90n/countrymaam/collection"
 	"github.com/ar90n/countrymaam/linalg"
 	"github.com/sourcegraph/conc/pool"
@@ -174,7 +174,7 @@ func (bsp *bspTreeIndex[T, U]) Build(ctx context.Context) error {
 	return p.Wait()
 }
 
-func (bsp *bspTreeIndex[T, U]) Search(ctx context.Context, query []T, n uint, maxCandidates uint) ([]Candidate[U], error) {
+func (bsp *bspTreeIndex[T, U]) Search(ctx context.Context, query []T, n uint, maxCandidates uint) ([]countrymaam.Candidate[U], error) {
 	ch := bsp.SearchChannel(ctx, query)
 
 	items := make([]collection.WithPriority[U], 0, maxCandidates)
@@ -187,7 +187,7 @@ func (bsp *bspTreeIndex[T, U]) Search(ctx context.Context, query []T, n uint, ma
 	pq := collection.NewPriorityQueueFromSlice(items)
 
 	// take unique neighbors
-	ret := make([]Candidate[U], 0, n)
+	ret := make([]countrymaam.Candidate[U], 0, n)
 	founds := make(map[U]struct{}, maxCandidates)
 	for uint(len(ret)) < n {
 		item, err := pq.PopWithPriority()
@@ -200,13 +200,13 @@ func (bsp *bspTreeIndex[T, U]) Search(ctx context.Context, query []T, n uint, ma
 		}
 		founds[item.Item] = struct{}{}
 
-		ret = append(ret, Candidate[U]{Item: item.Item, Distance: item.Priority})
+		ret = append(ret, countrymaam.Candidate[U]{Item: item.Item, Distance: item.Priority})
 	}
 	return ret, nil
 }
 
-func (bsp *bspTreeIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-chan Candidate[U] {
-	outputStream := make(chan Candidate[U], streamBufferSize)
+func (bsp *bspTreeIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-chan countrymaam.Candidate[U] {
+	outputStream := make(chan countrymaam.Candidate[U], streamBufferSize)
 	go func() error {
 		defer close(outputStream)
 
@@ -237,7 +237,7 @@ func (bsp *bspTreeIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-c
 					select {
 					case <-ctx.Done():
 						return nil
-					case outputStream <- Candidate[U]{
+					case outputStream <- countrymaam.Candidate[U]{
 						Item:     elem.Item,
 						Distance: distance,
 					}:
@@ -302,7 +302,8 @@ func NewTreeIndex[T linalg.Number, U comparable](config TreeConfig, cpf CutPlane
 
 	procs := config.Procs
 	if procs == 0 {
-		procs = uint(runtime.NumCPU())
+		//procs = uint(runtime.NumCPU())
+		procs = 1
 		log.Println("Procs in given Config is not set. use default value", procs)
 	}
 

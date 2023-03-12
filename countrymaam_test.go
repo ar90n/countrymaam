@@ -13,8 +13,8 @@ import (
 	"github.com/ar90n/countrymaam/linalg"
 )
 
-func getDataset1() [][]float32 {
-	return [][]float32{
+func getDataset1() ([][]float32, []int) {
+	features := [][]float32{
 		{-0.662, -0.405, 0.508, -0.991, -0.614, -1.639, 0.637, 0.715},
 		{0.44, -1.795, -0.243, -1.375, 1.154, 0.142, -0.219, -0.711},
 		{0.22, -0.029, 0.7, -0.963, 0.257, 0.419, 0.491, -0.87},
@@ -28,9 +28,13 @@ func getDataset1() [][]float32 {
 		{-1.034, -1.709, -2.693, 1.539, -1.186, 0.29, -0.935, -0.546},
 		{1.954, -1.708, -0.423, -2.241, 1.272, -0.253, -1.013, -0.382},
 	}
+	items := []int{
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+	}
+	return features, items
 }
 
-func mustNewTreeIndex[T linalg.Number, U comparable](config index.TreeConfig, cpf index.CutPlaneFactory[T, U]) countrymaam.Index[T, U] {
+func mustNewTreeIndex[T linalg.Number, U comparable](config index.TreeConfig, cpf index.CutPlaneFactory[T, U]) countrymaam.LegacyIndex[T, U] {
 	index, err := index.NewTreeIndex(config, cpf)
 	if err != nil {
 		panic(err)
@@ -39,15 +43,15 @@ func mustNewTreeIndex[T linalg.Number, U comparable](config index.TreeConfig, cp
 	return index
 }
 
-func mustNewGraphIndex[T linalg.Number, U comparable](k uint, rho float64) countrymaam.Index[T, U] {
+func mustNewGraphIndex[T linalg.Number, U comparable](k uint, rho float64) countrymaam.LegacyIndex[T, U] {
 	index := index.NewAKnnGraphIndex[T, U](k, rho)
 	return index
 }
 
-func TestSearchKNNVectors(t *testing.T) {
+func TestSearchKNNVectors2(t *testing.T) {
 	type Algorithm struct {
 		Name  string
-		Index countrymaam.Index[float32, int]
+		Build func(ctx context.Context, features [][]float32, items []int) countrymaam.Index[float32, int]
 	}
 
 	type TestCase struct {
@@ -57,13 +61,88 @@ func TestSearchKNNVectors(t *testing.T) {
 		Expected []int
 	}
 
-	dataset := getDataset1()
+	dataset, _ := getDataset1()
 	datasetDim := uint(len(dataset[0]))
 	for _, alg := range []Algorithm{
 		{
 			"FlatIndex",
-			index.NewFlatIndex[float32, int](datasetDim),
+			func(ctx context.Context, features [][]float32, items []int) countrymaam.Index[float32, int] {
+				builder := index.NewFlatIndexBuilder[float32, int](datasetDim)
+				index, err := builder.Build(context.Background(), features, items)
+				if err != nil {
+					panic(err)
+				}
+				return index
+			},
 		},
+	} {
+		t.Run(alg.Name, func(t *testing.T) {
+			features, items := getDataset1()
+			ctx := context.Background()
+			index := alg.Build(ctx, features, items)
+
+			for c, tc := range []TestCase{
+				{
+					Query:    [8]float32{-0.621, -0.586, -0.468, 0.494, 0.485, 0.407, 1.273, -1.1},
+					K:        1,
+					Expected: []int{5},
+				},
+				{
+					Query:    [8]float32{-0.83059702, -1.01070708, -0.15162675, -1.32760066, -1.19706362, -0.21952724, -0.27582108, 0.93780233},
+					K:        2,
+					Expected: []int{0, 9},
+				},
+				{
+					Query:    [8]float32{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
+					K:        5,
+					Expected: []int{2, 4, 5, 7, 9},
+				},
+				{
+					Query:    [8]float32{-0.621, -0.586, -0.468, 0.494, 0.485, 0.407, 1.273, -1.1},
+					K:        10,
+					Expected: []int{5, 7, 2, 8, 4, 1, 6, 0, 9, 3},
+				},
+				{
+					Query:    [8]float32{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
+					K:        5,
+					Expected: []int{2, 4, 5, 7, 9},
+				},
+			} {
+				t.Run(fmt.Sprint(c), func(t *testing.T) {
+					results, _ := index.Search(ctx, tc.Query[:], tc.K, 64)
+					if len(results) != len(tc.Expected) {
+						t.Errorf("Expected 1 result, got %d", len(results))
+					}
+
+					resultIndice := []int{}
+					for _, v := range results {
+						resultIndice = append(resultIndice, v.Item)
+					}
+					if !reflect.DeepEqual(resultIndice, tc.Expected) {
+						t.Errorf("Expected results to be %v, got %v", tc.Expected, results)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestSearchKNNVectors(t *testing.T) {
+	type Algorithm struct {
+		Name  string
+		Index countrymaam.LegacyIndex[float32, int]
+	}
+
+	type TestCase struct {
+		Query    [8]float32
+		K        uint
+		Radius   float64
+		Expected []int
+	}
+
+	dataset, _ := getDataset1()
+	datasetDim := uint(len(dataset[0]))
+	for _, alg := range []Algorithm{
 		{
 			"KDTreeIndex-Leafs:1-Trees:1",
 			mustNewTreeIndex[float32, int](
@@ -184,7 +263,7 @@ func TestSearchKNNVectors(t *testing.T) {
 func TestRebuildIndex(t *testing.T) {
 	type Algorithm struct {
 		Name  string
-		Index countrymaam.Index[float32, int]
+		Index countrymaam.LegacyIndex[float32, int]
 	}
 
 	type TestCase struct {
@@ -194,13 +273,9 @@ func TestRebuildIndex(t *testing.T) {
 		Expected []int
 	}
 
-	dataset := getDataset1()
+	dataset, _ := getDataset1()
 	datasetDim := uint(len(dataset[0]))
 	for _, alg := range []Algorithm{
-		{
-			"FlatIndex",
-			index.NewFlatIndex[float32, int](datasetDim),
-		},
 		{
 			"KDTreeIndex",
 			mustNewTreeIndex(index.TreeConfig{Dim: datasetDim}, cut_plane.NewKdCutPlaneFactory[float32, int](0, 0)),
@@ -273,18 +348,18 @@ func TestRebuildIndex(t *testing.T) {
 func TestBuildIndexWhenPoolIsEmpty(t *testing.T) {
 	type TestCase struct {
 		Name     string
-		Index    countrymaam.Index[float32, int]
+		Index    countrymaam.LegacyIndex[float32, int]
 		Expected bool
 	}
 
-	dataset := getDataset1()
+	dataset, _ := getDataset1()
 	datasetDim := uint(len(dataset[0]))
 	for _, alg := range []TestCase{
-		{
-			"FlatIndex",
-			index.NewFlatIndex[float32, int](datasetDim),
-			true,
-		},
+		//{
+		//	"FlatIndex",
+		//	index.NewFlatIndex[float32, int](datasetDim),
+		//	true,
+		//},
 		{
 			"KDTreeIndex",
 			mustNewTreeIndex(
@@ -319,7 +394,7 @@ func TestBuildIndexWhenPoolIsEmpty(t *testing.T) {
 	}
 }
 
-func testSerDes[T linalg.Number, I countrymaam.Index[T, int]](t *testing.T, ind I, dataset [][]T) error {
+func testSerDes[T linalg.Number, I countrymaam.LegacyIndex[T, int]](t *testing.T, ind I, dataset [][]T) error {
 	ctx := context.Background()
 	for i, data := range dataset {
 		data := data
@@ -362,9 +437,9 @@ func TestSerDesKNNVectors(t *testing.T) {
 	}
 	datasetDim := uint(len(dataset[0]))
 
-	t.Run("FlatIndex", func(t *testing.T) {
-		testSerDes(t, index.NewFlatIndex[float32, int](datasetDim), dataset)
-	})
+	//t.Run("FlatIndex", func(t *testing.T) {
+	//	testSerDes(t, index.NewFlatIndex[float32, int](datasetDim), dataset)
+	//})
 	t.Run("KdTreeIndex-Leafs:1", func(t *testing.T) {
 		testSerDes(t, mustNewTreeIndex(index.TreeConfig{Dim: datasetDim, Leafs: 1}, cut_plane.NewKdCutPlaneFactory[float32, int](0, 0)), dataset)
 	})

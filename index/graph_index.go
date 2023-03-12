@@ -11,6 +11,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/ar90n/countrymaam"
 	"github.com/ar90n/countrymaam/collection"
 	"github.com/ar90n/countrymaam/linalg"
 	"github.com/sourcegraph/conc/pool"
@@ -446,7 +447,7 @@ func (gi *AKnnGraphIndex[T, U]) Add(feature []T, item U) {
 	gi.Elements = append(gi.Elements, TreeElement[T, U]{Item: item, Feature: feature})
 }
 
-func (gi AKnnGraphIndex[T, U]) Search(ctx context.Context, query []T, n uint, maxCandidates uint) ([]Candidate[U], error) {
+func (gi AKnnGraphIndex[T, U]) Search(ctx context.Context, query []T, n uint, maxCandidates uint) ([]countrymaam.Candidate[U], error) {
 	ch := gi.SearchChannel(ctx, query)
 
 	items := make([]collection.WithPriority[U], 0, maxCandidates)
@@ -459,7 +460,7 @@ func (gi AKnnGraphIndex[T, U]) Search(ctx context.Context, query []T, n uint, ma
 	pq := collection.NewPriorityQueueFromSlice(items)
 
 	// take unique neighbors
-	ret := make([]Candidate[U], 0, n)
+	ret := make([]countrymaam.Candidate[U], 0, n)
 	founds := make(map[U]struct{}, maxCandidates)
 	for uint(len(ret)) < n {
 		item, err := pq.PopWithPriority()
@@ -472,7 +473,7 @@ func (gi AKnnGraphIndex[T, U]) Search(ctx context.Context, query []T, n uint, ma
 		}
 		founds[item.Item] = struct{}{}
 
-		ret = append(ret, Candidate[U]{Item: item.Item, Distance: item.Priority})
+		ret = append(ret, countrymaam.Candidate[U]{Item: item.Item, Distance: item.Priority})
 	}
 	return ret, nil
 }
@@ -514,9 +515,9 @@ func (gi AKnnGraphIndex[T, U]) findApproxNearest(entry uint, query []T, env lina
 	return best
 }
 
-func (gi AKnnGraphIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-chan Candidate[U] {
+func (gi AKnnGraphIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-chan countrymaam.Candidate[U] {
 	env := linalg.NewLinAlgFromContext[T](ctx)
-	outputStream := make(chan Candidate[U], streamBufferSize)
+	outputStream := make(chan countrymaam.Candidate[U], streamBufferSize)
 
 	go func() {
 		defer close(outputStream)
@@ -536,7 +537,7 @@ func (gi AKnnGraphIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-c
 			select {
 			case <-ctx.Done():
 				return
-			case outputStream <- Candidate[U]{
+			case outputStream <- countrymaam.Candidate[U]{
 				Item:     gi.Elements[cur.Item].Item,
 				Distance: cur.Priority,
 			}:

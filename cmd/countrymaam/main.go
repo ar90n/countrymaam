@@ -61,6 +61,11 @@ func createIndex[T linalg.Number, U comparable](ind string, nDim uint, leafSize 
 			},
 			cut_plane.NewRpCutPlaneFactory[T, U](32),
 		)
+	case "aknn":
+		return index.NewAKnnGraphIndex[T, U](
+			32,
+			0.7,
+		), nil
 	default:
 		return nil, fmt.Errorf("unknown index name: %s", ind)
 	}
@@ -84,6 +89,8 @@ func loadIndex[T linalg.Number, U comparable](ind string, inputPath string) (cou
 		return index.LoadTreeIndex(file, cut_plane.NewRpCutPlaneFactory[T, U](0))
 	case "rrp-tree":
 		return index.LoadTreeIndex(file, cut_plane.NewRpCutPlaneFactory[T, U](0))
+	case "aknn":
+		return index.LoadAKnnIndex[T, U](file)
 	default:
 		return nil, fmt.Errorf("unknown index name: %s", ind)
 	}

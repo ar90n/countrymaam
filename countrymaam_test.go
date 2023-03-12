@@ -39,6 +39,11 @@ func mustNewTreeIndex[T linalg.Number, U comparable](config index.TreeConfig, cp
 	return index
 }
 
+func mustNewGraphIndex[T linalg.Number, U comparable](k uint, rho float64) countrymaam.Index[T, U] {
+	index := index.NewAKnnGraphIndex[T, U](k, rho)
+	return index
+}
+
 func TestSearchKNNVectors(t *testing.T) {
 	type Algorithm struct {
 		Name  string
@@ -116,6 +121,10 @@ func TestSearchKNNVectors(t *testing.T) {
 				},
 				cut_plane.NewRpCutPlaneFactory[float32, int](32),
 			),
+		},
+		{
+			"AKnnGraphIndex",
+			mustNewGraphIndex[float32, int](5, 1.0),
 		},
 	} {
 		t.Run(alg.Name, func(t *testing.T) {
@@ -373,5 +382,8 @@ func TestSerDesKNNVectors(t *testing.T) {
 	})
 	t.Run("RpTreeIndex-Leafs:1-Trees:5", func(t *testing.T) {
 		testSerDes(t, mustNewTreeIndex(index.TreeConfig{Dim: datasetDim, Leafs: 1, Trees: 5}, cut_plane.NewRpCutPlaneFactory[float32, int](32)), dataset)
+	})
+	t.Run("AKnnGraphIndex", func(t *testing.T) {
+		testSerDes(t, mustNewGraphIndex[float32, int](5, 1.0), dataset)
 	})
 }

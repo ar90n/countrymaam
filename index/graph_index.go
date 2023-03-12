@@ -1,11 +1,19 @@
 package index
 
 import (
+	"context"
+	"encoding/gob"
 	"fmt"
+	"io"
 	"math"
 	"math/rand"
+	"runtime"
+	"sync"
+	"sync/atomic"
 
+	"github.com/ar90n/countrymaam/collection"
 	"github.com/ar90n/countrymaam/linalg"
+	"github.com/sourcegraph/conc/pool"
 )
 
 type Graph struct {
@@ -24,9 +32,10 @@ type builderGraphNode struct {
 
 	lastLowerBound float32
 	lastAccepted   int
+	mu             sync.Mutex
 }
 
-func (bgn builderGraphNode) Len() int {
+func (bgn *builderGraphNode) Len() int {
 	return len(bgn.Neighbors) - bgn.base
 }
 
@@ -35,13 +44,15 @@ func (n *builderGraphNode) Swap(i, j int) {
 	n.Dists[i], n.Dists[j] = n.Dists[j], n.Dists[i]
 }
 
-func (n builderGraphNode) Less(i, j int) bool {
+func (n *builderGraphNode) Less(i, j int) bool {
 	return n.Dists[i] < n.Dists[j]
 }
 
 func (bgn *builderGraphNode) Add(idx uint, dist float32) {
+	bgn.mu.Lock()
 	bgn.Neighbors = append(bgn.Neighbors, idx)
 	bgn.Dists = append(bgn.Dists, dist)
+	bgn.mu.Unlock()
 }
 
 func (bgn *builderGraphNode) Shrink() bool {
@@ -178,8 +189,8 @@ func (g builderGraph) Reverse(rho float64) builderGraph {
 		Nodes: make([]builderGraphNode, len(g.Nodes)),
 	}
 	rev.traverse(func(i int, node *builderGraphNode) {
-		node.Neighbors = make([]uint, 0, len(g.Nodes[i].Neighbors))
-		node.Dists = make([]float32, 0, len(g.Nodes[i].Neighbors))
+		node.Neighbors = make([]uint, 0)
+		node.Dists = make([]float32, 0)
 	})
 	g.traverse(func(i int, node *builderGraphNode) {
 		for _, ni := range node.Neighbors {
@@ -230,38 +241,46 @@ type KnnGraphBuilder[T linalg.Number, U comparable] struct {
 	Candidate builderGraph
 	K         uint
 	Rho       float64
+	Procs     uint
 }
 
 func NewKnnGraphBuilder[T linalg.Number, U comparable](elements []TreeElement[T, U], k uint, rho float64) KnnGraphBuilder[T, U] {
+	procs := uint(runtime.NumCPU())
 	builder := KnnGraphBuilder[T, U]{
 		Elements: elements,
 		K:        k,
 		Rho:      rho,
+		Procs:    procs,
 	}
 	return builder
 }
 
 func (gb *KnnGraphBuilder[T, U]) Init(env linalg.Env[T]) error {
 	nodes := make([]builderGraphNode, len(gb.Elements))
+
+	p := pool.New().WithMaxGoroutines(int(gb.Procs))
 	for i := range nodes {
 		i := uint(i)
-		nodes[i].Neighbors = make([]uint, 0, gb.K)
-		nodes[i].Dists = make([]float32, 0, gb.K)
+		p.Go(func() {
+			nodes[i].Neighbors = make([]uint, 0, gb.K)
+			nodes[i].Dists = make([]float32, 0, gb.K)
 
-		ignores := map[uint]struct{}{
-			i: {},
-		}
-		for uint(len(ignores)) <= gb.K {
-			idx := uint(rand.Int31n(int32(len(nodes))))
-			if _, ok := ignores[idx]; ok {
-				continue
+			ignores := map[uint]struct{}{
+				i: {},
 			}
-			ignores[idx] = struct{}{}
+			for uint(len(ignores)) <= gb.K {
+				idx := uint(rand.Int31n(int32(len(nodes))))
+				if _, ok := ignores[idx]; ok {
+					continue
+				}
+				ignores[idx] = struct{}{}
 
-			dist := env.SqL2(gb.Elements[i].Feature, gb.Elements[idx].Feature)
-			nodes[i].Add(idx, dist)
-		}
+				dist := env.SqL2(gb.Elements[i].Feature, gb.Elements[idx].Feature)
+				nodes[i].Add(idx, dist)
+			}
+		})
 	}
+	p.Wait()
 
 	gb.Fixed = builderGraph{Nodes: make([]builderGraphNode, len(gb.Elements))}
 	gb.Candidate = builderGraph{Nodes: nodes}
@@ -300,34 +319,47 @@ func (gb KnnGraphBuilder[T, U]) Build(k uint) Graph {
 }
 
 func (gb *KnnGraphBuilder[T, U]) removeRedundat() (bool, error) {
-	isChanged := false
+	changes := uint64(0)
+
+	p := pool.New().WithMaxGoroutines(int(gb.Procs)).WithErrors()
 	for v := range gb.Candidate.Nodes {
-		gb.Fixed.Nodes[v].Heapify()
-		gb.Candidate.Nodes[v].Heapify()
+		v := v
+		p.Go(func() error {
+			gb.Fixed.Nodes[v].Heapify()
+			gb.Candidate.Nodes[v].Heapify()
 
-		founds := make(map[uint]struct{})
-		for i := 0; i < int(gb.K); i++ {
-			fi, fixedDist, fixedOk := gb.Fixed.Nodes[v].dropDuplicates(founds)
-			ci, candDist, candOk := gb.Candidate.Nodes[v].dropDuplicates(founds)
+			founds := make(map[uint]struct{})
+			for i := 0; i < int(gb.K); i++ {
+				fi, fixedDist, fixedOk := gb.Fixed.Nodes[v].dropDuplicates(founds)
+				ci, candDist, candOk := gb.Candidate.Nodes[v].dropDuplicates(founds)
 
-			if !fixedOk && !candOk {
-				break
+				if !fixedOk && !candOk {
+					break
+				}
+
+				if fixedDist <= candDist {
+					gb.Fixed.Nodes[v].Accept()
+					founds[fi] = struct{}{}
+				} else {
+					gb.Candidate.Nodes[v].Accept()
+					founds[ci] = struct{}{}
+				}
 			}
 
-			if fixedDist < candDist {
-				gb.Fixed.Nodes[v].Accept()
-				founds[fi] = struct{}{}
-			} else {
-				gb.Candidate.Nodes[v].Accept()
-				founds[ci] = struct{}{}
+			isFixedChanged := gb.Fixed.Nodes[v].Shrink()
+			isCandidateChanged := gb.Candidate.Nodes[v].Shrink()
+			if isFixedChanged || isCandidateChanged {
+				atomic.AddUint64(&changes, 1)
 			}
-		}
 
-		isChanged = gb.Fixed.Nodes[v].Shrink() || isChanged
-		isChanged = gb.Candidate.Nodes[v].Shrink() || isChanged
+			return nil
+		})
 	}
 
-	return isChanged, nil
+	err := p.Wait()
+	//isConverged := changes < 20
+	isConverged := changes != 0
+	return isConverged, err
 }
 
 func (gb *KnnGraphBuilder[T, U]) addRelationShip(i, j uint, env linalg.Env[T]) {
@@ -342,42 +374,48 @@ func (gb *KnnGraphBuilder[T, U]) addCandidates(env linalg.Env[T]) {
 	rold := old.Reverse(gb.Rho)
 	rnew := new.Reverse(gb.Rho)
 
+	p := pool.New().WithMaxGoroutines(int(gb.Procs)).WithErrors()
 	for v := range gb.Candidate.Nodes {
-		for _, u1 := range new.Nodes[v].Neighbors {
-			for _, u2 := range new.Nodes[v].Neighbors {
-				if u2 <= u1 {
-					continue
+		v := v
+		p.Go(func() error {
+			for _, u1 := range new.Nodes[v].Neighbors {
+				for _, u2 := range new.Nodes[v].Neighbors {
+					if u2 <= u1 {
+						continue
+					}
+
+					gb.addRelationShip(u1, u2, env)
 				}
 
-				gb.addRelationShip(u1, u2, env)
-			}
+				for _, u2 := range rnew.Nodes[v].Neighbors {
+					if u2 <= u1 {
+						continue
+					}
 
-			for _, u2 := range rnew.Nodes[v].Neighbors {
-				if u2 <= u1 {
-					continue
+					gb.addRelationShip(u1, u2, env)
 				}
 
-				gb.addRelationShip(u1, u2, env)
-			}
+				for _, u2 := range old.Nodes[v].Neighbors {
+					if u2 == u1 {
+						continue
+					}
 
-			for _, u2 := range old.Nodes[v].Neighbors {
-				if u2 == u1 {
-					continue
+					gb.addRelationShip(u1, u2, env)
 				}
 
-				gb.addRelationShip(u1, u2, env)
-			}
+				for _, u2 := range rold.Nodes[v].Neighbors {
+					if u2 == u1 {
+						continue
+					}
 
-			for _, u2 := range rold.Nodes[v].Neighbors {
-				if u2 == u1 {
-					continue
+					gb.addRelationShip(u1, u2, env)
 				}
-
-				gb.addRelationShip(u1, u2, env)
 			}
-		}
+
+			return nil
+		})
 	}
-
+	p.Wait()
 	gb.Fixed.Merge(new)
 }
 
@@ -397,6 +435,157 @@ func (bgn *builderGraphNode) dropDuplicates(founds map[uint]struct{}) (uint, flo
 	return idx, dist, retOk
 }
 
+type AKnnGraphIndex[T linalg.Number, U comparable] struct {
+	Elements []TreeElement[T, U]
+	K        uint
+	Rho      float64
+	G        Graph
+}
+
+func (gi *AKnnGraphIndex[T, U]) Add(feature []T, item U) {
+	gi.Elements = append(gi.Elements, TreeElement[T, U]{Item: item, Feature: feature})
+}
+
+func (gi AKnnGraphIndex[T, U]) Search(ctx context.Context, query []T, n uint, maxCandidates uint) ([]Candidate[U], error) {
+	ch := gi.SearchChannel(ctx, query)
+
+	items := make([]collection.WithPriority[U], 0, maxCandidates)
+	for item := range ch {
+		if maxCandidates <= uint(len(items)) {
+			break
+		}
+		items = append(items, collection.WithPriority[U]{Item: item.Item, Priority: item.Distance})
+	}
+	pq := collection.NewPriorityQueueFromSlice(items)
+
+	// take unique neighbors
+	ret := make([]Candidate[U], 0, n)
+	founds := make(map[U]struct{}, maxCandidates)
+	for uint(len(ret)) < n {
+		item, err := pq.PopWithPriority()
+		if err != nil {
+			break
+		}
+
+		if _, ok := founds[item.Item]; ok {
+			continue
+		}
+		founds[item.Item] = struct{}{}
+
+		ret = append(ret, Candidate[U]{Item: item.Item, Distance: item.Priority})
+	}
+	return ret, nil
+}
+
+func (gi AKnnGraphIndex[T, U]) findApproxNearest(entry uint, query []T, env linalg.Env[T]) collection.WithPriority[uint] {
+	curIdx := entry
+	curDist := float64(env.SqL2(query, gi.Elements[curIdx].Feature))
+
+	q := collection.NewPriorityQueue[uint](0)
+	q.Push(curIdx, curDist)
+
+	best := collection.WithPriority[uint]{
+		Item:     uint(0),
+		Priority: float64(math.MaxFloat64),
+	}
+	visited := map[uint]struct{}{curIdx: {}}
+	for {
+		cur, err := q.PopWithPriority()
+		if err != nil {
+			break
+		}
+
+		if best.Priority < cur.Priority {
+			break
+		}
+		best = cur
+
+		for _, e := range gi.G.Nodes[cur.Item].Neighbors {
+			if _, found := visited[e]; found {
+				continue
+			}
+			visited[e] = struct{}{}
+
+			dist := float64(env.SqL2(query, gi.Elements[e].Feature))
+			q.Push(e, dist)
+		}
+	}
+
+	return best
+}
+
+func (gi AKnnGraphIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-chan Candidate[U] {
+	env := linalg.NewLinAlgFromContext[T](ctx)
+	outputStream := make(chan Candidate[U], streamBufferSize)
+
+	go func() {
+		defer close(outputStream)
+
+		approxNearest := gi.findApproxNearest(0, query, linalg.NewLinAlgFromContext[T](ctx))
+
+		q := collection.NewPriorityQueue[uint](0)
+		q.Push(approxNearest.Item, approxNearest.Priority)
+
+		visited := map[uint]struct{}{approxNearest.Item: {}}
+		for {
+			cur, err := q.PopWithPriority()
+			if err != nil {
+				return
+			}
+
+			select {
+			case <-ctx.Done():
+				return
+			case outputStream <- Candidate[U]{
+				Item:     gi.Elements[cur.Item].Item,
+				Distance: cur.Priority,
+			}:
+			}
+
+			for _, e := range gi.G.Nodes[cur.Item].Neighbors {
+				if _, found := visited[e]; found {
+					continue
+				}
+				visited[e] = struct{}{}
+
+				dist := float64(env.SqL2(query, gi.Elements[e].Feature))
+				q.Push(e, dist)
+			}
+		}
+	}()
+
+	return outputStream
+}
+
+func (gi *AKnnGraphIndex[T, U]) Build(ctx context.Context) error {
+	env := linalg.NewLinAlgFromContext[T](ctx)
+
+	builder := NewKnnGraphBuilder(gi.Elements, gi.K, gi.Rho)
+	err := builder.Init(env)
+	if err != nil {
+		return err
+	}
+
+	isConverged := false
+	for !isConverged {
+		isConverged, err = builder.Update(env)
+		if err != nil {
+			return err
+		}
+	}
+
+	gi.G = builder.Build(gi.K)
+	return nil
+}
+
+func (gi AKnnGraphIndex[T, U]) HasIndex() bool {
+	return 0 < len(gi.G.Nodes)
+}
+
+func (gi AKnnGraphIndex[T, U]) Save(w io.Writer) error {
+	return saveIndex(gi, w)
+}
+
 func BuildAknnGraph(elements []TreeElement[float32, int], k uint, env linalg.Env[float32]) (Graph, error) {
 	builder := NewKnnGraphBuilder(elements, k, 1.0)
 	err := builder.Init(env)
@@ -413,4 +602,24 @@ func BuildAknnGraph(elements []TreeElement[float32, int], k uint, env linalg.Env
 	}
 
 	return builder.Build(k), nil
+}
+
+func NewAKnnGraphIndex[T linalg.Number, U comparable](k uint, rho float64) *AKnnGraphIndex[T, U] {
+	gob.Register(AKnnGraphIndex[T, U]{})
+
+	return &AKnnGraphIndex[T, U]{
+		K:   k,
+		Rho: rho,
+	}
+}
+
+func LoadAKnnIndex[T linalg.Number, U comparable](r io.Reader) (*AKnnGraphIndex[T, U], error) {
+	gob.Register(AKnnGraphIndex[T, U]{})
+
+	index, err := loadIndex[AKnnGraphIndex[T, U]](r)
+	if err != nil {
+		return nil, err
+	}
+
+	return &index, nil
 }

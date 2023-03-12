@@ -71,10 +71,12 @@ func newLinAlgF32(conf Config) interface{} {
 func newLinAlgUint8(options Config) interface{} {
 	if cpu.X86.HasAVX2 && !options.DisableAVX2 {
 		return Env[uint8]{
-			SqL2:        asm.SqL2Uint8AVX2,
+			//SqL2:        asm.SqL2Uint8AVX2,
+			SqL2:        sqL2[uint8, uint8],
 			SqL2WithF32: sqL2[uint8, float32],
-			Dot:         asm.DotUint8AVX2,
-			DotWithF32:  dot[uint8, float32],
+			//Dot:         asm.DotUint8AVX2,
+			Dot:        dot[uint8, uint8],
+			DotWithF32: dot[uint8, float32],
 		}
 	}
 

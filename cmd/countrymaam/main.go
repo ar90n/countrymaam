@@ -11,7 +11,8 @@ import (
 	"runtime/pprof"
 
 	"github.com/ar90n/countrymaam"
-	"github.com/ar90n/countrymaam/cut_plane"
+	"github.com/ar90n/countrymaam/bsp_tree"
+	"github.com/ar90n/countrymaam/graph"
 	"github.com/ar90n/countrymaam/index"
 	"github.com/ar90n/countrymaam/linalg"
 	"github.com/urfave/cli/v2"
@@ -23,49 +24,38 @@ type Query[T linalg.Number] struct {
 	MaxCandidates uint
 }
 
-func createIndex[T linalg.Number, U comparable](ind string, nDim uint, leafSize uint, nTrees uint) (countrymaam.Index[T, U], error) {
+func createBuilder[T linalg.Number, U comparable](ind string, nDim uint, leafSize uint, nTrees uint) (countrymaam.IndexBuilder[T, U], error) {
 	switch ind {
 	case "flat":
-		return index.NewFlatIndex[T, U](nDim), nil
+		return index.NewFlatIndexBuilder[T, U](nDim), nil
 	case "kd-tree":
-		return index.NewTreeIndex(
-			index.TreeConfig{
-				Dim:   nDim,
-				Leafs: leafSize,
-			},
-			cut_plane.NewKdCutPlaneFactory[T, U](0, 0),
-		)
+		kdTreeBuilder := bsp_tree.NewKdTreeBuilder[T]()
+		kdTreeBuilder.SetLeafs(leafSize)
+		builder := index.NewBspTreeIndexBuilder[T, U](nDim, kdTreeBuilder)
+		return builder, nil
 	case "rkd-tree":
-		return index.NewTreeIndex(
-			index.TreeConfig{
-				Dim:   nDim,
-				Leafs: leafSize,
-				Trees: nTrees,
-			},
-			cut_plane.NewKdCutPlaneFactory[T, U](100, 5),
-		)
+		kdTreeBuilder := bsp_tree.NewKdTreeBuilder[T]()
+		kdTreeBuilder.SetLeafs(leafSize).SetSampleFeatures(100).SetTopKCandidates(5)
+		builder := index.NewBspTreeIndexBuilder[T, U](nDim, kdTreeBuilder)
+		builder.Trees(nTrees)
+		return builder, nil
 	case "rp-tree":
-		return index.NewTreeIndex(
-			index.TreeConfig{
-				Dim:   nDim,
-				Leafs: leafSize,
-			},
-			cut_plane.NewRpCutPlaneFactory[T, U](0),
-		)
+		rpTreeBuilder := bsp_tree.NewRpTreeBuilder[T]()
+		rpTreeBuilder.SetLeafs(leafSize)
+		builder := index.NewBspTreeIndexBuilder[T, U](nDim, rpTreeBuilder)
+		return builder, nil
 	case "rrp-tree":
-		return index.NewTreeIndex(
-			index.TreeConfig{
-				Dim:   nDim,
-				Leafs: leafSize,
-				Trees: nTrees,
-			},
-			cut_plane.NewRpCutPlaneFactory[T, U](32),
-		)
+		rpTreeBuilder := bsp_tree.NewRpTreeBuilder[T]()
+		rpTreeBuilder.SetLeafs(leafSize).SetSampleFeatures(32)
+		builder := index.NewBspTreeIndexBuilder[T, U](nDim, rpTreeBuilder)
+		builder.Trees(nTrees)
+		return builder, nil
 	case "aknn":
-		return index.NewAKnnGraphIndex[T, U](
-			32,
-			0.7,
-		), nil
+		graphBuilder := graph.NewAKnnGraphBuilder[T]()
+		graphBuilder.SetK(128).SetRho(0.7)
+
+		builder := index.NewGraphIndexBuilder[T, U](nDim, graphBuilder)
+		return builder, nil
 	default:
 		return nil, fmt.Errorf("unknown index name: %s", ind)
 	}
@@ -82,15 +72,15 @@ func loadIndex[T linalg.Number, U comparable](ind string, inputPath string) (cou
 	case "flat":
 		return index.LoadFlatIndex[T, U](file)
 	case "kd-tree":
-		return index.LoadTreeIndex(file, cut_plane.NewKdCutPlaneFactory[T, U](0, 0))
+		return index.LoadBspTreeIndex[T, U](file)
 	case "rkd-tree":
-		return index.LoadTreeIndex(file, cut_plane.NewKdCutPlaneFactory[T, U](0, 0))
+		return index.LoadBspTreeIndex[T, U](file)
 	case "rp-tree":
-		return index.LoadTreeIndex(file, cut_plane.NewRpCutPlaneFactory[T, U](0))
+		return index.LoadBspTreeIndex[T, U](file)
 	case "rrp-tree":
-		return index.LoadTreeIndex(file, cut_plane.NewRpCutPlaneFactory[T, U](0))
+		return index.LoadBspTreeIndex[T, U](file)
 	case "aknn":
-		return index.LoadAKnnIndex[T, U](file)
+		return index.LoadGraphIndex[T, U](file)
 	default:
 		return nil, fmt.Errorf("unknown index name: %s", ind)
 	}
@@ -168,13 +158,15 @@ func train[T linalg.Number](nDim uint, indexName string, leafSize uint, outputNa
 	}
 
 	ctx := context.Background()
-	index, err := createIndex[T, int](indexName, nDim, leafSize, nTrees)
+	builder, err := createBuilder[T, int](indexName, nDim, leafSize, nTrees)
 	if err != nil {
 		return err
 	}
 
 	log.Println("reading data...")
 	r := bufio.NewReader(os.Stdin)
+	features := make([][]T, 0, 100000)
+	items := make([]int, 0, 100000)
 Loop:
 	for i := 0; ; i++ {
 		feature, err := readFeature[T](r, nDim)
@@ -184,12 +176,15 @@ Loop:
 		if err != nil {
 			return err
 		}
-		index.Add(feature, i)
+
+		features = append(features, feature)
+		items = append(items, i)
 	}
 	log.Println("done")
 
 	log.Println("building index...")
-	if err := index.Build(ctx); err != nil {
+	index, err := builder.Build(ctx, features, items)
+	if err != nil {
 		return err
 	}
 	log.Println("done")

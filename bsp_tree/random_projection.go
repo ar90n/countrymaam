@@ -1,45 +1,33 @@
-package cut_plane
+package bsp_tree
 
 import (
 	"errors"
 	"math"
 	"math/rand"
 
-	"github.com/ar90n/countrymaam/index"
 	"github.com/ar90n/countrymaam/linalg"
 )
 
+const rpTreeDefaultLeafs = 16
+
 var (
-	_ index.CutPlane[float32, int]        = (*RpCutPlane[float32, int])(nil)
-	_ index.CutPlaneFactory[float32, int] = (*RpCutPlaneFactory[float32, int])(nil)
+	_ CutPlane[float32] = (*rpCutPlane[float32])(nil)
 )
 
-type RpCutPlane[T linalg.Number, U comparable] struct {
+type rpCutPlane[T linalg.Number] struct {
 	Normal []float32
 	A      float64
 }
 
-func (cp RpCutPlane[T, U]) Evaluate(feature []T, env linalg.Env[T]) bool {
+func (cp rpCutPlane[T]) Evaluate(feature []T, env linalg.Env[T]) bool {
 	return 0.0 <= cp.Distance(feature, env)
 }
 
-func (cp RpCutPlane[T, U]) Distance(feature []T, env linalg.Env[T]) float64 {
+func (cp rpCutPlane[T]) Distance(feature []T, env linalg.Env[T]) float64 {
 	return cp.A + float64(env.DotWithF32(feature, cp.Normal))
 }
 
-type RpCutPlaneFactory[T linalg.Number, U comparable] struct {
-	features uint
-}
-
-func NewRpCutPlaneFactory[T linalg.Number, U comparable](features uint) index.CutPlaneFactory[T, U] {
-	return RpCutPlaneFactory[T, U]{features: features}
-}
-
-func (f RpCutPlaneFactory[T, U]) Default() index.CutPlane[T, U] {
-	return RpCutPlane[T, U]{}
-}
-
-func (f RpCutPlaneFactory[T, U]) Build(elements []index.TreeElement[T, U], indice []int, env linalg.Env[T]) (index.CutPlane[T, U], error) {
+func newRpCutPlane[T linalg.Number](features [][]T, indice []int, nFeatures uint, env linalg.Env[T]) (CutPlane[T], error) {
 	if len(indice) == 0 {
 		return nil, errors.New("elements is empty")
 	}
@@ -51,18 +39,18 @@ func (f RpCutPlaneFactory[T, U]) Build(elements []index.TreeElement[T, U], indic
 	}
 
 	const maxIter = 8
-	dim := len(elements[indice[lhsIndex]].Feature)
+	dim := len(features[indice[lhsIndex]])
 	lhsCenter := make([]float32, dim)
 	rhsCenter := make([]float32, dim)
 	lhsCount := 1
 	rhsCount := 1
 	for i := 0; i < dim; i++ {
-		lhsCenter[i] = float32(elements[indice[lhsIndex]].Feature[i])
-		rhsCenter[i] = float32(elements[indice[rhsIndex]].Feature[i])
+		lhsCenter[i] = float32(features[indice[lhsIndex]][i])
+		rhsCenter[i] = float32(features[indice[rhsIndex]][i])
 	}
 	nSamples := uint(32)
-	if 0 < f.features {
-		nSamples = f.features
+	if 0 < nFeatures {
+		nSamples = nFeatures
 	}
 	if uint(len(indice)) < nSamples {
 		nSamples = uint(len(indice))
@@ -71,7 +59,7 @@ func (f RpCutPlaneFactory[T, U]) Build(elements []index.TreeElement[T, U], indic
 	for i := 0; i < maxIter; i++ {
 		rand.Shuffle(len(indice), func(i, j int) { indice[i], indice[j] = indice[j], indice[i] })
 		for _, k := range indice[:nSamples] {
-			feature := elements[k].Feature
+			feature := features[k]
 			lhsSqDist := env.SqL2WithF32(feature, lhsCenter)
 			rhsSqDist := env.SqL2WithF32(feature, rhsCenter)
 
@@ -109,9 +97,56 @@ func (f RpCutPlaneFactory[T, U]) Build(elements []index.TreeElement[T, U], indic
 	}
 	a /= 2.0
 
-	cutPlane := RpCutPlane[T, U]{
+	cutPlane := rpCutPlane[T]{
 		Normal: normal,
 		A:      a,
 	}
 	return &cutPlane, nil
+}
+
+type RpTreeBuilder[T linalg.Number] struct {
+	leafs          uint
+	sampleFeatures uint
+}
+
+func NewRpTreeBuilder[T linalg.Number]() *RpTreeBuilder[T] {
+	return &RpTreeBuilder[T]{
+		leafs:          rpTreeDefaultLeafs,
+		sampleFeatures: 32,
+	}
+}
+
+func (rtb *RpTreeBuilder[T]) SetLeafs(leafs uint) *RpTreeBuilder[T] {
+	rtb.leafs = leafs
+	return rtb
+}
+
+func (rtb *RpTreeBuilder[T]) SetSampleFeatures(sampleFeatures uint) *RpTreeBuilder[T] {
+	rtb.sampleFeatures = sampleFeatures
+	return rtb
+}
+
+func (rtb *RpTreeBuilder[T]) Build(features [][]T, env linalg.Env[T]) (BspTree[T], error) {
+	//gob.Register(rpCutPlane[T]{})
+
+	indice := make([]int, len(features))
+	for i := range indice {
+		indice[i] = i
+	}
+	rand.Shuffle(len(indice), func(i, j int) { indice[i], indice[j] = indice[j], indice[i] })
+
+	bsp_tree := BspTree[T]{
+		Indice: indice,
+		Nodes:  []Node[T]{},
+	}
+
+	cf := func(features [][]T, indice []int, env linalg.Env[T]) (CutPlane[T], error) {
+		return newRpCutPlane(features, indice, 0, env)
+	}
+	_, err := bsp_tree.buildSubTree(features, indice, rtb.leafs, 0, env, cf)
+	if err != nil {
+		return bsp_tree, err
+	}
+
+	return bsp_tree, nil
 }

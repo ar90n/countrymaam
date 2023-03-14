@@ -79,7 +79,10 @@ class Countrymaam(BaseANN):
             self._pipe.stdin.write(struct.pack(f"={v.size}{unit_char}", *v))
             self._pipe.stdin.flush()
 
-            rn = struct.unpack("=i", self._pipe.stdout.read(4))[0]
+            try:
+                rn = struct.unpack("=i", self._pipe.stdout.read(4))[0]
+            except:
+                print("\n".join(self._pipe.stderr.readlines()), file=sys.stderr)
             ret = [0] * rn
             for i in range(rn):
                 ret[i] = struct.unpack("=i", self._pipe.stdout.read(4))[0]
@@ -100,7 +103,7 @@ class Countrymaam(BaseANN):
             "--index", self._index,
        	    "--input", path,
             "--profile-output", profile_file_path
-        ], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        ], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     def stringify_index_param(self, param):
         return f"Countrymaam(index={self._index}, leaf_size={self._leaf_size} n_trees={self._n_trees})"

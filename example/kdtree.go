@@ -1,43 +1,52 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	_ "embed"
 	"fmt"
 
-	"github.com/ar90n/countrymaam/cut_plane"
+	"github.com/ar90n/countrymaam/bsp_tree"
 	"github.com/ar90n/countrymaam/index"
 )
 
 func main() {
 	dim := uint(64)
-	ctx := context.Background()
-	index, err := index.NewTreeIndex(
-		index.TreeConfig{
-			Dim:   dim,
-			Leafs: 8,
-			Trees: 8,
-		},
-		cut_plane.NewKdCutPlaneFactory[uint8, int](100, 5),
-	)
-	if err != nil {
-		panic(err)
-	}
+	bspTreeBuilder := bsp_tree.NewKdTreeBuilder[uint8]()
+	bspTreeBuilder.SetLeafs(8)
+	builder := index.NewBspTreeIndexBuilder[uint8, int](dim, bspTreeBuilder)
 
 	features, err := readFeatures(dim)
 	if err != nil {
 		panic(err)
 	}
 
-	for i, f := range features {
-		index.Add(f, i)
+	items := make([]int, len(features))
+	for i := range items {
+		items[i] = i
 	}
-	index.Build(ctx)
+
+	ctx := context.Background()
+	ind, err := builder.Trees(8).Build(ctx, features, items)
+	if err != nil {
+		panic(err)
+	}
+
+	buf := make([]byte, 0)
+	byteBuffer := bytes.NewBuffer(buf)
+	if err := ind.Save(byteBuffer); err != nil {
+		panic(err)
+	}
+
+	ind2, err := index.LoadBspTreeIndex[uint8, int](byteBuffer)
+	if err != nil {
+		panic(err)
+	}
 
 	query := []uint8{
 		177, 73, 110, 135, 85, 153, 143, 73, 210, 208, 148, 50, 39, 165, 51, 201, 47, 102, 198, 55, 192, 42, 89, 189, 104, 86, 183, 162, 60, 145, 122, 104, 133, 200, 167, 51, 147, 167, 191, 220, 85, 75, 57, 72, 43, 150, 155, 53, 163, 171, 106, 115, 99, 78, 88, 48, 81, 214, 114, 126, 196, 214, 220, 75,
 	}
-	neighbors, err := index.Search(ctx, query, 5, 32)
+	neighbors, err := ind2.Search(ctx, query, 5, 32)
 	if err != nil {
 		panic(err)
 	}

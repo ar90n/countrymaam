@@ -8,13 +8,13 @@ import (
 )
 
 type Candidate[U comparable] struct {
-	Distance float64
+	Distance float32
 	Item     U
 }
 
 type Index[T linalg.Number, U comparable] interface {
-	Search(ctx context.Context, feature []T, n uint, maxCandidates uint) ([]Candidate[U], error)
-	SearchChannel(ctx context.Context, feature []T) <-chan Candidate[U]
+	Search(ctx context.Context, query []T, n uint, maxCandidates uint) ([]Candidate[U], error)
+	SearchChannel(ctx context.Context, query []T) <-chan Candidate[U]
 	Save(reader io.Writer) error
 }
 

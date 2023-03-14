@@ -2,7 +2,6 @@ package index
 
 import (
 	"context"
-	"errors"
 	"io"
 	"sort"
 	"sync"
@@ -14,24 +13,19 @@ import (
 	"github.com/ar90n/countrymaam/pipeline"
 )
 
-var (
-	ErrInvalidFeaturesAndItems = errors.New("invalid features and items")
-	ErrInvalidFeatureDim       = errors.New("invalid feature dim")
-)
-
-type flatIndex[T linalg.Number, U comparable] struct {
+type FlatIndex[T linalg.Number, U comparable] struct {
 	Features [][]T
 	Items    []U
 }
 
-var _ = (*flatIndex[float32, int])(nil)
+var _ = (*FlatIndex[float32, int])(nil)
 
 type chunk struct {
 	Begin uint
 	End   uint
 }
 
-func (fi flatIndex[T, U]) Search(ctx context.Context, query []T, n uint, maxCandidates uint) ([]countrymaam.Candidate[U], error) {
+func (fi FlatIndex[T, U]) Search(ctx context.Context, query []T, n uint, maxCandidates uint) ([]countrymaam.Candidate[U], error) {
 	ch := fi.SearchChannel(ctx, query)
 	ch = pipeline.Unique(ctx, ch)
 	ch = pipeline.Take(ctx, maxCandidates, ch)
@@ -46,7 +40,7 @@ func (fi flatIndex[T, U]) Search(ctx context.Context, query []T, n uint, maxCand
 	return items[:n], nil
 }
 
-func (fi flatIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-chan countrymaam.Candidate[U] {
+func (fi FlatIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-chan countrymaam.Candidate[U] {
 	procs := uint(1)
 
 	featStream := make(chan collection.WithPriority[U])
@@ -62,7 +56,7 @@ func (fi flatIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-chan c
 				defer wg.Done()
 
 				for i := c.Begin; i < c.End; i++ {
-					distance := float64(env.SqL2(query, fi.Features[i]))
+					distance := env.SqL2(query, fi.Features[i])
 					select {
 					case <-ctx.Done():
 						return
@@ -97,7 +91,7 @@ func (fi flatIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-chan c
 				return
 			case outputStream <- countrymaam.Candidate[U]{
 				Item:     item.Item,
-				Distance: float64(item.Priority),
+				Distance: item.Priority,
 			}:
 			}
 		}
@@ -106,16 +100,16 @@ func (fi flatIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-chan c
 	return outputStream
 }
 
-func (fi flatIndex[T, U]) Save(w io.Writer) error {
+func (fi FlatIndex[T, U]) Save(w io.Writer) error {
 	return saveIndex(fi, w)
 }
 
-func (fi *flatIndex[T, U]) Add(feature []T, item U) {
+func (fi *FlatIndex[T, U]) Add(feature []T, item U) {
 	fi.Features = append(fi.Features, feature)
 	fi.Items = append(fi.Items, item)
 }
 
-func (fi flatIndex[T, U]) getChunks(procs uint) <-chan chunk {
+func (fi FlatIndex[T, U]) getChunks(procs uint) <-chan chunk {
 	ch := make(chan chunk)
 	go func() {
 		defer close(ch)
@@ -142,18 +136,18 @@ type FlatIndexBuilder[T linalg.Number, U comparable] struct {
 	Dim uint
 }
 
-func NewFlatIndexBuilder[T linalg.Number, U comparable](dim uint) FlatIndexBuilder[T, U] {
-	return FlatIndexBuilder[T, U]{
+func NewFlatIndexBuilder[T linalg.Number, U comparable](dim uint) *FlatIndexBuilder[T, U] {
+	return &FlatIndexBuilder[T, U]{
 		Dim: dim,
 	}
 }
 
-func (fig FlatIndexBuilder[T, U]) Build(ctx context.Context, features [][]T, items []U) (countrymaam.MutableIndex[T, U], error) {
+func (fig FlatIndexBuilder[T, U]) Build(ctx context.Context, features [][]T, items []U) (countrymaam.Index[T, U], error) {
 	if err := fig.validate(features, items); err != nil {
 		return nil, err
 	}
 
-	index := &flatIndex[T, U]{
+	index := &FlatIndex[T, U]{
 		Features: features,
 		Items:    items,
 	}
@@ -162,20 +156,20 @@ func (fig FlatIndexBuilder[T, U]) Build(ctx context.Context, features [][]T, ite
 
 func (fig FlatIndexBuilder[T, U]) validate(features [][]T, items []U) error {
 	if uint(len(features)) != uint(len(items)) {
-		return ErrInvalidFeaturesAndItems
+		return countrymaam.ErrInvalidFeaturesAndItems
 	}
 
 	for _, feature := range features {
 		if uint(len(feature)) != fig.Dim {
-			return ErrInvalidFeatureDim
+			return countrymaam.ErrInvalidFeatureDim
 		}
 	}
 
 	return nil
 }
 
-func LoadFlatIndex[T linalg.Number, U comparable](r io.Reader) (*flatIndex[T, U], error) {
-	index, err := loadIndex[flatIndex[T, U]](r)
+func LoadFlatIndex[T linalg.Number, U comparable](r io.Reader) (*FlatIndex[T, U], error) {
+	index, err := loadIndex[FlatIndex[T, U]](r)
 	if err != nil {
 		return nil, err
 	}

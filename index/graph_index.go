@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"math"
+	"runtime"
 
 	"github.com/ar90n/countrymaam"
 	"github.com/ar90n/countrymaam/collection"
@@ -138,17 +139,23 @@ func (gi GraphIndex[T, U]) Save(w io.Writer) error {
 }
 
 type GraphIndexBuilder[T linalg.Number, U comparable] struct {
-	dim          uint
-	graphBuilder graph.GraphBuilder
+	dim           uint
+	maxGoroutines int
+	graphBuilder  graph.GraphBuilder
 }
 
 func NewGraphIndexBuilder[T linalg.Number, U comparable](dim uint, graphBuilder graph.GraphBuilder) *GraphIndexBuilder[T, U] {
 	creator := GraphIndexBuilder[T, U]{
-		dim:          dim,
-		graphBuilder: graphBuilder,
+		dim:           dim,
+		maxGoroutines: runtime.NumCPU(),
+		graphBuilder:  graphBuilder,
 	}
 
 	return &creator
+}
+
+func (agib *GraphIndexBuilder[T, U]) SetMaxGoroutines(maxGoroutines uint) {
+	agib.maxGoroutines = int(maxGoroutines)
 }
 
 func (agib *GraphIndexBuilder[T, U]) Build(ctx context.Context, features [][]T, items []U) (countrymaam.Index[T, U], error) {

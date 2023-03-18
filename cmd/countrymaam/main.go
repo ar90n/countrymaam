@@ -37,7 +37,7 @@ func createBuilder[T linalg.Number, U comparable](ind string, nDim uint, leafSiz
 		kdTreeBuilder := bsp_tree.NewKdTreeBuilder[T]()
 		kdTreeBuilder.SetLeafs(leafSize).SetSampleFeatures(100).SetTopKCandidates(5)
 		builder := index.NewBspTreeIndexBuilder[T, U](nDim, kdTreeBuilder)
-		builder.Trees(nTrees)
+		builder.SetTrees(nTrees)
 		return builder, nil
 	case "rp-tree":
 		rpTreeBuilder := bsp_tree.NewRpTreeBuilder[T]()
@@ -48,7 +48,7 @@ func createBuilder[T linalg.Number, U comparable](ind string, nDim uint, leafSiz
 		rpTreeBuilder := bsp_tree.NewRpTreeBuilder[T]()
 		rpTreeBuilder.SetLeafs(leafSize).SetSampleFeatures(32)
 		builder := index.NewBspTreeIndexBuilder[T, U](nDim, rpTreeBuilder)
-		builder.Trees(nTrees)
+		builder.SetTrees(nTrees)
 		return builder, nil
 	case "aknn":
 		graphBuilder := graph.NewAKnnGraphBuilder[T]()

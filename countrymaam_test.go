@@ -68,7 +68,7 @@ func TestSearchKNNVectors2(t *testing.T) {
 				kdTreeBuilder := bsp_tree.NewKdTreeBuilder[float32]()
 				kdTreeBuilder.SetLeafs(1)
 				builder := index.NewBspTreeIndexBuilder[float32, int](datasetDim, kdTreeBuilder)
-				builder.Trees(1)
+				builder.SetTrees(1)
 				index, err := builder.Build(context.Background(), features, items)
 				if err != nil {
 					panic(err)
@@ -82,7 +82,7 @@ func TestSearchKNNVectors2(t *testing.T) {
 				kdTreeBuilder := bsp_tree.NewKdTreeBuilder[float32]()
 				kdTreeBuilder.SetLeafs(5)
 				builder := index.NewBspTreeIndexBuilder[float32, int](datasetDim, kdTreeBuilder)
-				builder.Trees(1)
+				builder.SetTrees(1)
 				index, err := builder.Build(context.Background(), features, items)
 				if err != nil {
 					panic(err)
@@ -96,7 +96,7 @@ func TestSearchKNNVectors2(t *testing.T) {
 				kdTreeBuilder := bsp_tree.NewKdTreeBuilder[float32]()
 				kdTreeBuilder.SetLeafs(1)
 				builder := index.NewBspTreeIndexBuilder[float32, int](datasetDim, kdTreeBuilder)
-				builder.Trees(5)
+				builder.SetTrees(5)
 				index, err := builder.Build(context.Background(), features, items)
 				if err != nil {
 					panic(err)
@@ -136,7 +136,7 @@ func TestSearchKNNVectors2(t *testing.T) {
 				rpTreeBuilder := bsp_tree.NewRpTreeBuilder[float32]()
 				rpTreeBuilder.SetLeafs(1)
 				builder := index.NewBspTreeIndexBuilder[float32, int](datasetDim, rpTreeBuilder)
-				builder.Trees(5)
+				builder.SetTrees(5)
 				index, err := builder.Build(context.Background(), features, items)
 				if err != nil {
 					panic(err)

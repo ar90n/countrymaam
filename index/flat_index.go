@@ -14,8 +14,9 @@ import (
 )
 
 type FlatIndex[T linalg.Number, U comparable] struct {
-	Features [][]T
-	Items    []U
+	Features      [][]T
+	Items         []U
+	MaxGoroutines uint
 }
 
 var _ = (*FlatIndex[float32, int])(nil)
@@ -41,8 +42,6 @@ func (fi FlatIndex[T, U]) Search(ctx context.Context, query []T, n uint, maxCand
 }
 
 func (fi FlatIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-chan countrymaam.Candidate[U] {
-	procs := uint(1)
-
 	featStream := make(chan collection.WithPriority[U])
 	go func() {
 		defer close(featStream)
@@ -50,7 +49,7 @@ func (fi FlatIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-chan c
 		env := linalg.NewLinAlgFromContext[T](ctx)
 
 		wg := sync.WaitGroup{}
-		for c := range fi.getChunks(procs) {
+		for c := range fi.getChunks(fi.MaxGoroutines) {
 			wg.Add(1)
 			go func(c chunk) {
 				defer wg.Done()
@@ -133,12 +132,13 @@ func (fi FlatIndex[T, U]) getChunks(procs uint) <-chan chunk {
 }
 
 type FlatIndexBuilder[T linalg.Number, U comparable] struct {
-	Dim uint
+	dim           uint
+	maxGoroutines int
 }
 
 func NewFlatIndexBuilder[T linalg.Number, U comparable](dim uint) *FlatIndexBuilder[T, U] {
 	return &FlatIndexBuilder[T, U]{
-		Dim: dim,
+		dim: dim,
 	}
 }
 
@@ -148,10 +148,15 @@ func (fig FlatIndexBuilder[T, U]) Build(ctx context.Context, features [][]T, ite
 	}
 
 	index := &FlatIndex[T, U]{
-		Features: features,
-		Items:    items,
+		Features:      features,
+		Items:         items,
+		MaxGoroutines: uint(fig.maxGoroutines),
 	}
 	return index, nil
+}
+
+func (fig *FlatIndexBuilder[T, U]) SetMaxGoroutines(maxGoroutines uint) {
+	fig.maxGoroutines = int(maxGoroutines)
 }
 
 func (fig FlatIndexBuilder[T, U]) validate(features [][]T, items []U) error {
@@ -160,7 +165,7 @@ func (fig FlatIndexBuilder[T, U]) validate(features [][]T, items []U) error {
 	}
 
 	for _, feature := range features {
-		if uint(len(feature)) != fig.Dim {
+		if uint(len(feature)) != fig.dim {
 			return countrymaam.ErrInvalidFeatureDim
 		}
 	}

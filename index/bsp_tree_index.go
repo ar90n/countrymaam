@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"math"
+	"runtime"
 
 	"github.com/ar90n/countrymaam"
 	"github.com/ar90n/countrymaam/bsp_tree"
@@ -128,6 +129,7 @@ func (bsp BspTreeIndex[T, U]) Save(w io.Writer) error {
 type BspTreeIndexBuilder[T linalg.Number, U comparable] struct {
 	dim            uint
 	trees          uint
+	maxGoroutines  int
 	bspTreeBuilder bsp_tree.BspTreeBuilder[T]
 }
 
@@ -135,12 +137,18 @@ func NewBspTreeIndexBuilder[T linalg.Number, U comparable](dim uint, bspTreeBuil
 	return &BspTreeIndexBuilder[T, U]{
 		dim:            dim,
 		trees:          defaultTrees,
+		maxGoroutines:  runtime.NumCPU(),
 		bspTreeBuilder: bspTreeBuilder,
 	}
 }
 
-func (btib *BspTreeIndexBuilder[T, U]) Trees(trees uint) *BspTreeIndexBuilder[T, U] {
+func (btib *BspTreeIndexBuilder[T, U]) SetTrees(trees uint) *BspTreeIndexBuilder[T, U] {
 	btib.trees = trees
+	return btib
+}
+
+func (btib *BspTreeIndexBuilder[T, U]) SetMaxGoroutines(maxGoroutines uint) *BspTreeIndexBuilder[T, U] {
+	btib.maxGoroutines = int(maxGoroutines)
 	return btib
 }
 
@@ -149,9 +157,8 @@ func (btis *BspTreeIndexBuilder[T, U]) Build(ctx context.Context, features [][]T
 
 	env := linalg.NewLinAlgFromContext[T](ctx)
 
-	procs := 1
 	trees := make([]bsp_tree.BspTree[T], btis.trees)
-	p := pool.New().WithMaxGoroutines(int(procs)).WithErrors()
+	p := pool.New().WithMaxGoroutines(btis.maxGoroutines).WithErrors()
 	for i := uint(0); i < btis.trees; i++ {
 		i := i
 		p.Go(func() error {

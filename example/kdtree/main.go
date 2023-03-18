@@ -27,7 +27,7 @@ func main() {
 	}
 
 	ctx := context.Background()
-	ind, err := builder.Trees(8).Build(ctx, features, items)
+	ind, err := builder.SetTrees(8).Build(ctx, features, items)
 	if err != nil {
 		panic(err)
 	}

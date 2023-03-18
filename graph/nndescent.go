@@ -19,7 +19,6 @@ type nndescentNode struct {
 
 	lastLowerBound float32
 	lastAccepted   int
-	mu             sync.Mutex
 }
 
 func (bgn *nndescentNode) Len() int {
@@ -36,10 +35,8 @@ func (n *nndescentNode) Less(i, j int) bool {
 }
 
 func (bgn *nndescentNode) Add(idx uint, dist float32) {
-	bgn.mu.Lock()
 	bgn.Neighbors = append(bgn.Neighbors, idx)
 	bgn.Dists = append(bgn.Dists, dist)
-	bgn.mu.Unlock()
 }
 
 func (bgn *nndescentNode) Shrink() bool {
@@ -104,7 +101,7 @@ func (bgn *nndescentNode) Heapify() {
 	}
 }
 
-func (bgn nndescentNode) getLesserSibling(lIdx, n int) int {
+func (bgn *nndescentNode) getLesserSibling(lIdx, n int) int {
 	ret := lIdx // left child
 	if rIdx := lIdx - 1; n < rIdx && bgn.Less(rIdx, lIdx) {
 		ret = rIdx // = 2*i + 2  // right child
@@ -292,6 +289,8 @@ func (n *Nndescent) localJoin() {
 
 	procs := uint(runtime.NumCPU())
 	p := pool.New().WithMaxGoroutines(int(procs)).WithErrors()
+
+	locks := make([]sync.Mutex, len(n.candidate.Nodes))
 	for v := range n.candidate.Nodes {
 		v := v
 		p.Go(func() error {
@@ -302,7 +301,12 @@ func (n *Nndescent) localJoin() {
 					}
 
 					dist := n.distFunc(u1, u2)
-					n.candidate.Join(u1, u2, dist)
+					locks[u1].Lock()
+					n.candidate.Nodes[u1].Add(u2, dist)
+					locks[u1].Unlock()
+					locks[u2].Lock()
+					n.candidate.Nodes[u2].Add(u1, dist)
+					locks[u2].Unlock()
 				}
 
 				for _, u2 := range rnew.Nodes[v].Neighbors {
@@ -311,7 +315,12 @@ func (n *Nndescent) localJoin() {
 					}
 
 					dist := n.distFunc(u1, u2)
-					n.candidate.Join(u1, u2, dist)
+					locks[u1].Lock()
+					n.candidate.Nodes[u1].Add(u2, dist)
+					locks[u1].Unlock()
+					locks[u2].Lock()
+					n.candidate.Nodes[u2].Add(u1, dist)
+					locks[u2].Unlock()
 				}
 
 				for _, u2 := range old.Nodes[v].Neighbors {
@@ -320,7 +329,12 @@ func (n *Nndescent) localJoin() {
 					}
 
 					dist := n.distFunc(u1, u2)
-					n.candidate.Join(u1, u2, dist)
+					locks[u1].Lock()
+					n.candidate.Nodes[u1].Add(u2, dist)
+					locks[u1].Unlock()
+					locks[u2].Lock()
+					n.candidate.Nodes[u2].Add(u1, dist)
+					locks[u2].Unlock()
 				}
 
 				for _, u2 := range rold.Nodes[v].Neighbors {
@@ -329,7 +343,12 @@ func (n *Nndescent) localJoin() {
 					}
 
 					dist := n.distFunc(u1, u2)
-					n.candidate.Join(u1, u2, dist)
+					locks[u1].Lock()
+					n.candidate.Nodes[u1].Add(u2, dist)
+					locks[u1].Unlock()
+					locks[u2].Lock()
+					n.candidate.Nodes[u2].Add(u1, dist)
+					locks[u2].Unlock()
 				}
 			}
 

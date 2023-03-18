@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ar90n/countrymaam/example"
 	"github.com/ar90n/countrymaam/graph"
 	"github.com/ar90n/countrymaam/index"
 )
@@ -15,7 +16,7 @@ func main() {
 	graphBuilder.SetK(30).SetRho(1.0)
 	builder := index.NewGraphIndexBuilder[uint8, int](dim, graphBuilder)
 
-	features, err := readFeatures(dim)
+	features, err := example.ReadFeatures(dim)
 	if err != nil {
 		panic(err)
 	}

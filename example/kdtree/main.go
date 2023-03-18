@@ -3,10 +3,10 @@ package main
 import (
 	"bytes"
 	"context"
-	_ "embed"
 	"fmt"
 
 	"github.com/ar90n/countrymaam/bsp_tree"
+	"github.com/ar90n/countrymaam/example"
 	"github.com/ar90n/countrymaam/index"
 )
 
@@ -16,7 +16,7 @@ func main() {
 	bspTreeBuilder.SetLeafs(8)
 	builder := index.NewBspTreeIndexBuilder[uint8, int](dim, bspTreeBuilder)
 
-	features, err := readFeatures(dim)
+	features, err := example.ReadFeatures(dim)
 	if err != nil {
 		panic(err)
 	}

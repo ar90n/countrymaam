@@ -1,4 +1,4 @@
-package main
+package example
 
 import (
 	"bytes"
@@ -11,7 +11,7 @@ import (
 //go:embed dim064.csv
 var dim64 []byte
 
-func readFeatures(dim uint) ([][]uint8, error) {
+func ReadFeatures(dim uint) ([][]uint8, error) {
 	r := csv.NewReader(bytes.NewReader(dim64))
 
 	ret := make([][]uint8, 0)

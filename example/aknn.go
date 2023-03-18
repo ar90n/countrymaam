@@ -5,26 +5,31 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ar90n/countrymaam/graph"
 	"github.com/ar90n/countrymaam/index"
 )
 
 func main() {
 	dim := uint(64)
-	ctx := context.Background()
-	ind := index.NewAKnnGraphIndex[float32, int](
-		30,
-		1.0,
-	)
+	graphBuilder := graph.NewAKnnGraphBuilder[uint8]()
+	graphBuilder.SetK(30).SetRho(1.0)
+	builder := index.NewGraphIndexBuilder[uint8, int](dim, graphBuilder)
 
-	features, err := readFeatures2(dim)
+	features, err := readFeatures(dim)
 	if err != nil {
 		panic(err)
 	}
 
-	for i, f := range features {
-		ind.Add(f, i)
+	items := make([]int, len(features))
+	for i := range items {
+		items[i] = i
 	}
-	ind.Build(ctx)
+
+	ctx := context.Background()
+	ind, err := builder.Build(ctx, features, items)
+	if err != nil {
+		panic(err)
+	}
 
 	buf := make([]byte, 0)
 	byteBuffer := bytes.NewBuffer(buf)
@@ -32,15 +37,15 @@ func main() {
 		panic(err)
 	}
 
-	ind2, err := index.LoadAKnnIndex[float32, int](byteBuffer)
+	ind2, err := index.LoadGraphIndex[uint8, int](byteBuffer)
 	if err != nil {
 		panic(err)
 	}
 
-	query := []float32{
+	query := []uint8{
 		177, 73, 110, 135, 85, 153, 143, 73, 210, 208, 148, 50, 39, 165, 51, 201, 47, 102, 198, 55, 192, 42, 89, 189, 104, 86, 183, 162, 60, 145, 122, 104, 133, 200, 167, 51, 147, 167, 191, 220, 85, 75, 57, 72, 43, 150, 155, 53, 163, 171, 106, 115, 99, 78, 88, 48, 81, 214, 114, 126, 196, 214, 220, 75,
 	}
-	neighbors, err := ind2.Search(ctx, query, 200, 800)
+	neighbors, err := ind2.Search(ctx, query, 5, 32)
 	if err != nil {
 		panic(err)
 	}

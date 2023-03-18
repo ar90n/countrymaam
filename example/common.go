@@ -37,30 +37,3 @@ func readFeatures(dim uint) ([][]uint8, error) {
 
 	return ret, nil
 }
-
-func readFeatures2(dim uint) ([][]float32, error) {
-	r := csv.NewReader(bytes.NewReader(dim64))
-
-	ret := make([][]float32, 0)
-	for {
-		record, err := r.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
-
-		feature := make([]float32, dim)
-		for i, text := range record {
-			val, err := strconv.ParseInt(text, 10, 32)
-			if err != nil {
-				return nil, err
-			}
-			feature[i] = float32(val)
-		}
-		ret = append(ret, feature)
-	}
-
-	return ret, nil
-}

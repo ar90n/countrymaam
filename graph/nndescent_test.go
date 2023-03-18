@@ -191,11 +191,8 @@ func Test_CreateAKnnGraph(t *testing.T) {
 	rg := newRandomizedKnGraph(n, k)
 	nndescent := NewNndescent(rg, k, rho, distFunc)
 	for {
-		isConverged, err := nndescent.Update()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if isConverged {
+		changes := nndescent.Update()
+		if changes == 0 {
 			break
 		}
 	}

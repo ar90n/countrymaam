@@ -9,9 +9,10 @@ import (
 )
 
 type AKnnGraphBuilder[T linalg.Number] struct {
-	k       uint
-	rho     float64
-	maxIter uint
+	k          uint
+	rho        float64
+	maxIter    uint
+	maxChanges uint
 }
 
 func NewAKnnGraphBuilder[T linalg.Number]() *AKnnGraphBuilder[T] {
@@ -36,16 +37,18 @@ func (agc *AKnnGraphBuilder[T]) SetMaxIter(maxIter uint) *AKnnGraphBuilder[T] {
 	return agc
 }
 
+func (agc *AKnnGraphBuilder[T]) SetMaxChanges(maxChanges uint) *AKnnGraphBuilder[T] {
+	agc.maxChanges = maxChanges
+	return agc
+}
+
 func (agc *AKnnGraphBuilder[T]) Build(n uint, distFunc func(i, j uint) float32) (Graph, error) {
 	rg := newRandomizedKnGraph(n, agc.k)
 	nndescent := NewNndescent(rg, agc.k, agc.rho, distFunc)
 
 	for i := uint(0); i < agc.maxIter; i++ {
-		isConverged, err := nndescent.Update()
-		if err != nil {
-			return Graph{}, err
-		}
-		if isConverged {
+		changes := nndescent.Update()
+		if changes <= agc.maxChanges {
 			break
 		}
 	}

@@ -233,67 +233,77 @@ func (g *nndescentGraph) Join(i, j uint, dist float32) {
 }
 
 type Nndescent struct {
-	fixed     nndescentGraph
-	candidate nndescentGraph
-	k         uint
-	rho       float64
-	distFunc  func(i, j uint) float32
+	fixed         nndescentGraph
+	candidate     nndescentGraph
+	k             uint
+	rho           float64
+	distFunc      func(i, j uint) float32
+	maxGoroutines int
 }
 
-func NewNndescent(initGraph Graph, k uint, rho float64, f func(i, j uint) float32) Nndescent {
+type Option func(*Nndescent)
+
+func WithMaxGoroutines(maxGoroutines uint) Option {
+	return func(n *Nndescent) {
+		n.maxGoroutines = int(maxGoroutines)
+	}
+}
+
+func NewNndescent(initGraph Graph, k uint, rho float64, f func(i, j uint) float32, options ...Option) Nndescent {
 	n := uint(len(initGraph.Nodes))
 	fixed := newNndescentGraph(n)
 	candidate := newNndescentGraphFrom(initGraph, f)
 
-	builder := Nndescent{
-		fixed:     fixed,
-		candidate: candidate,
-		k:         k,
-		rho:       rho,
-		distFunc:  f,
+	nndescent := Nndescent{
+		fixed:         fixed,
+		candidate:     candidate,
+		k:             k,
+		rho:           rho,
+		distFunc:      f,
+		maxGoroutines: runtime.NumCPU(),
 	}
-	return builder
+	for _, option := range options {
+		option(&nndescent)
+	}
+
+	return nndescent
 }
 
-func (n *Nndescent) Update() (bool, error) {
+func (n *Nndescent) Update() uint {
 	n.localJoin()
-	return n.prune()
+	return uint(n.prune())
 }
 
 func (n Nndescent) Create() Graph {
 	ret := Graph{Nodes: make([]Node, len(n.fixed.Nodes))}
 	for i := range ret.Nodes {
 		ret.Nodes[i].Neighbors = make([]uint, 0, n.k)
+		ret.Nodes[i].Neighbors = append(ret.Nodes[i].Neighbors, n.fixed.Nodes[i].Neighbors...)
+		ret.Nodes[i].Neighbors = append(ret.Nodes[i].Neighbors, n.candidate.Nodes[i].Neighbors...)
 	}
-
-	for i := range n.fixed.Nodes {
-		for j := range n.fixed.Nodes[i].Neighbors {
-			ret.Nodes[i].Neighbors = append(ret.Nodes[i].Neighbors, n.fixed.Nodes[i].Neighbors[j])
-		}
-	}
-
-	for i := range n.candidate.Nodes {
-		for j := range n.candidate.Nodes[i].Neighbors {
-			ret.Nodes[i].Neighbors = append(ret.Nodes[i].Neighbors, n.candidate.Nodes[i].Neighbors[j])
-		}
-	}
-
 	return ret
 }
 
 func (n *Nndescent) localJoin() {
+	locks := make([]sync.Mutex, len(n.candidate.Nodes))
+	joinNodes := func(i, j uint, dist float32) {
+		locks[i].Lock()
+		n.candidate.Nodes[i].Add(j, dist)
+		locks[i].Unlock()
+		locks[j].Lock()
+		n.candidate.Nodes[j].Add(i, dist)
+		locks[j].Unlock()
+	}
+
 	old := n.fixed
 	new := n.candidate.Split(n.rho)
 	rold := old.Reverse(n.rho)
 	rnew := new.Reverse(n.rho)
 
-	procs := uint(runtime.NumCPU())
-	p := pool.New().WithMaxGoroutines(int(procs)).WithErrors()
-
-	locks := make([]sync.Mutex, len(n.candidate.Nodes))
+	p := pool.New().WithMaxGoroutines(n.maxGoroutines)
 	for v := range n.candidate.Nodes {
 		v := v
-		p.Go(func() error {
+		p.Go(func() {
 			for _, u1 := range new.Nodes[v].Neighbors {
 				for _, u2 := range new.Nodes[v].Neighbors {
 					if u2 <= u1 {
@@ -301,12 +311,7 @@ func (n *Nndescent) localJoin() {
 					}
 
 					dist := n.distFunc(u1, u2)
-					locks[u1].Lock()
-					n.candidate.Nodes[u1].Add(u2, dist)
-					locks[u1].Unlock()
-					locks[u2].Lock()
-					n.candidate.Nodes[u2].Add(u1, dist)
-					locks[u2].Unlock()
+					joinNodes(u1, u2, dist)
 				}
 
 				for _, u2 := range rnew.Nodes[v].Neighbors {
@@ -315,12 +320,7 @@ func (n *Nndescent) localJoin() {
 					}
 
 					dist := n.distFunc(u1, u2)
-					locks[u1].Lock()
-					n.candidate.Nodes[u1].Add(u2, dist)
-					locks[u1].Unlock()
-					locks[u2].Lock()
-					n.candidate.Nodes[u2].Add(u1, dist)
-					locks[u2].Unlock()
+					joinNodes(u1, u2, dist)
 				}
 
 				for _, u2 := range old.Nodes[v].Neighbors {
@@ -329,12 +329,7 @@ func (n *Nndescent) localJoin() {
 					}
 
 					dist := n.distFunc(u1, u2)
-					locks[u1].Lock()
-					n.candidate.Nodes[u1].Add(u2, dist)
-					locks[u1].Unlock()
-					locks[u2].Lock()
-					n.candidate.Nodes[u2].Add(u1, dist)
-					locks[u2].Unlock()
+					joinNodes(u1, u2, dist)
 				}
 
 				for _, u2 := range rold.Nodes[v].Neighbors {
@@ -343,30 +338,23 @@ func (n *Nndescent) localJoin() {
 					}
 
 					dist := n.distFunc(u1, u2)
-					locks[u1].Lock()
-					n.candidate.Nodes[u1].Add(u2, dist)
-					locks[u1].Unlock()
-					locks[u2].Lock()
-					n.candidate.Nodes[u2].Add(u1, dist)
-					locks[u2].Unlock()
+					joinNodes(u1, u2, dist)
 				}
 			}
-
-			return nil
 		})
 	}
 	p.Wait()
+
 	n.fixed.Merge(new)
 }
 
-func (n *Nndescent) prune() (bool, error) {
+func (n *Nndescent) prune() uint64 {
 	changes := uint64(0)
 
-	proc := uint(runtime.NumCPU())
-	p := pool.New().WithMaxGoroutines(int(proc)).WithErrors()
+	p := pool.New().WithMaxGoroutines(n.maxGoroutines)
 	for v := range n.candidate.Nodes {
 		v := v
-		p.Go(func() error {
+		p.Go(func() {
 			n.fixed.Nodes[v].Heapify()
 			n.candidate.Nodes[v].Heapify()
 
@@ -393,15 +381,11 @@ func (n *Nndescent) prune() (bool, error) {
 			if isFixedChanged || isCandidateChanged {
 				atomic.AddUint64(&changes, 1)
 			}
-
-			return nil
 		})
 	}
+	p.Wait()
 
-	err := p.Wait()
-	//isConverged := changes < 20
-	isConverged := changes == 0
-	return isConverged, err
+	return changes
 }
 
 func (bgn *nndescentNode) dropDuplicates(founds map[uint]struct{}) (uint, float32, bool) {

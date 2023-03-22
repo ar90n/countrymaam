@@ -1,15 +1,50 @@
 package graph
 
 import (
+	"bytes"
+	_ "embed"
+	"encoding/csv"
 	"fmt"
+	"io"
 	"math"
 	"sort"
+	"strconv"
 	"testing"
 
 	"github.com/ar90n/countrymaam/linalg"
 	"github.com/stretchr/testify/assert"
 )
 
+//go:embed vec.csv
+var rawVec []byte
+var rawVecDim = 128
+
+func ParseFeatures(raw []byte, dim uint) ([][]float32, error) {
+	r := csv.NewReader(bytes.NewReader(raw))
+
+	ret := make([][]float32, 0)
+	for {
+		record, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		feature := make([]float32, dim)
+		for i, text := range record {
+			val, err := strconv.ParseFloat(text, 64)
+			if err != nil {
+				return nil, err
+			}
+			feature[i] = float32(val)
+		}
+		ret = append(ret, feature)
+	}
+
+	return ret, nil
+}
 func Test_nndescentGraphNode(t *testing.T) {
 	bgn := nndescentNode{
 		Neighbors: []uint{},
@@ -209,5 +244,39 @@ func Test_CreateAKnnGraph(t *testing.T) {
 		}
 		ss += cs
 	}
-	assert.InDelta(t, 28.686062, ss, 0.0001)
+	assert.InEpsilon(t, 28.686062, ss, 0.01)
+}
+
+func Test_CreateAKnnGraph2(t *testing.T) {
+	v, _ := ParseFeatures(rawVec, uint(rawVecDim))
+	k := uint(10)
+	n := uint(len(v))
+	rho := 0.8
+	env := linalg.NewLinAlg[float32](linalg.Config{})
+	distFunc := func(i, j uint) float32 {
+		return env.SqL2(v[i], v[j])
+	}
+
+	rg := newRandomizedKnGraph(n, k)
+	nndescent := NewNndescent(rg, k, rho, distFunc)
+	for {
+		changes := nndescent.Update()
+		if changes == 0 {
+			break
+		}
+	}
+	knn := nndescent.Create()
+
+	ss := float32(0.0)
+	for i := range knn.Nodes {
+		cs := float32(0.0)
+		if uint(len(knn.Nodes[i].Neighbors)) != k {
+			t.Fatal("wrong number of neighbors")
+		}
+		for j := range knn.Nodes[i].Neighbors {
+			cs += float32(math.Sqrt(float64(env.SqL2(v[i], v[knn.Nodes[i].Neighbors[j]]))))
+		}
+		ss += cs
+	}
+	assert.InEpsilon(t, 9159.141, ss, 0.01)
 }

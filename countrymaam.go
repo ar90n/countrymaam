@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/ar90n/countrymaam/collection"
 	"github.com/ar90n/countrymaam/linalg"
 )
 
@@ -13,8 +14,19 @@ type Candidate[U comparable] struct {
 }
 
 type Index[T linalg.Number, U comparable] interface {
-	Search(ctx context.Context, query []T, n uint, maxCandidates uint) ([]Candidate[U], error)
 	SearchChannel(ctx context.Context, query []T) <-chan Candidate[U]
+	Save(reader io.Writer) error
+}
+
+type MutableIndex[T linalg.Number, U comparable] interface {
+	SearchChannel(ctx context.Context, query []T) <-chan Candidate[U]
+	Save(reader io.Writer) error
+	Add(feature []T, item U)
+}
+
+type EntryPointIndex[T linalg.Number, U comparable] interface {
+	SearchChannel(ctx context.Context, query []T) <-chan Candidate[U]
+	SearchChannelWithEntries(ctx context.Context, query []T, entries []uint) <-chan Candidate[U]
 	Save(reader io.Writer) error
 }
 
@@ -22,16 +34,31 @@ type IndexBuilder[T linalg.Number, U comparable] interface {
 	Build(ctx context.Context, features [][]T, items []U) (Index[T, U], error)
 }
 
-type MutableIndex[T linalg.Number, U comparable] interface {
-	Index[T, U]
-	Add(feature []T, item U)
-}
+func Search[U comparable](ch <-chan Candidate[U], n uint, maxCandidates uint) ([]Candidate[U], error) {
+	items := make([]collection.WithPriority[U], 0, maxCandidates)
+	for item := range ch {
+		if maxCandidates <= uint(len(items)) {
+			break
+		}
+		items = append(items, collection.WithPriority[U]{Item: item.Item, Priority: item.Distance})
+	}
+	pq := collection.NewPriorityQueueFromSlice(items)
 
-type LegacyIndex[T linalg.Number, U comparable] interface {
-	Search(ctx context.Context, feature []T, n uint, maxCandidates uint) ([]Candidate[U], error)
-	Add(feature []T, item U)
-	SearchChannel(ctx context.Context, feature []T) <-chan Candidate[U]
-	Build(ctx context.Context) error
-	HasIndex() bool
-	Save(reader io.Writer) error
+	// take unique neighbors
+	ret := make([]Candidate[U], 0, n)
+	founds := make(map[U]struct{}, maxCandidates)
+	for uint(len(ret)) < n {
+		item, err := pq.PopWithPriority()
+		if err != nil {
+			return nil, err
+		}
+
+		if _, ok := founds[item.Item]; ok {
+			continue
+		}
+		founds[item.Item] = struct{}{}
+
+		ret = append(ret, Candidate[U]{Item: item.Item, Distance: item.Priority})
+	}
+	return ret, nil
 }

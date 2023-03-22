@@ -31,37 +31,6 @@ type queueItem struct {
 
 var _ = (*BspTreeIndex[float32, int])(nil)
 
-func (bsp BspTreeIndex[T, U]) Search(ctx context.Context, query []T, n uint, maxCandidates uint) ([]countrymaam.Candidate[U], error) {
-	ch := bsp.SearchChannel(ctx, query)
-
-	items := make([]collection.WithPriority[U], 0, maxCandidates)
-	for item := range ch {
-		if maxCandidates <= uint(len(items)) {
-			break
-		}
-		items = append(items, collection.WithPriority[U]{Item: item.Item, Priority: item.Distance})
-	}
-	pq := collection.NewPriorityQueueFromSlice(items)
-
-	// take unique neighbors
-	ret := make([]countrymaam.Candidate[U], 0, n)
-	founds := make(map[U]struct{}, maxCandidates)
-	for uint(len(ret)) < n {
-		item, err := pq.PopWithPriority()
-		if err != nil {
-			return nil, err
-		}
-
-		if _, ok := founds[item.Item]; ok {
-			continue
-		}
-		founds[item.Item] = struct{}{}
-
-		ret = append(ret, countrymaam.Candidate[U]{Item: item.Item, Distance: item.Priority})
-	}
-	return ret, nil
-}
-
 func (bsp BspTreeIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-chan countrymaam.Candidate[U] {
 	outputStream := make(chan countrymaam.Candidate[U], streamBufferSize)
 	go func() error {
@@ -77,10 +46,9 @@ func (bsp BspTreeIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-ch
 		for {
 			nodeWithPriority, err := queue.PopWithPriority()
 			if err != nil {
-				if queue.Len() == 0 {
+				if err == collection.ErrEmptyPriorityQueue {
 					break
 				}
-
 				continue
 			}
 

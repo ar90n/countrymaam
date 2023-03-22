@@ -148,7 +148,7 @@ func TestSearchKNNVectors2(t *testing.T) {
 			"AKnnGraphIndex",
 			func(ctx context.Context, features [][]float32, items []int) countrymaam.Index[float32, int] {
 				graphBuilder := graph.NewAKnnGraphBuilder[float32]()
-				graphBuilder.SetK(5).SetRho(1.0)
+				graphBuilder.SetK(3).SetRho(0.3)
 				builder := index.NewGraphIndexBuilder[float32, int](datasetDim, graphBuilder)
 				index, err := builder.Build(context.Background(), features, items)
 				if err != nil {
@@ -191,7 +191,8 @@ func TestSearchKNNVectors2(t *testing.T) {
 				},
 			} {
 				t.Run(fmt.Sprint(c), func(t *testing.T) {
-					results, _ := index.Search(ctx, tc.Query[:], tc.K, 64)
+					ch := index.SearchChannel(ctx, tc.Query[:])
+					results, _ := countrymaam.Search(ch, tc.K, 64)
 					if len(results) != len(tc.Expected) {
 						t.Errorf("Expected 1 result, got %d", len(results))
 					}

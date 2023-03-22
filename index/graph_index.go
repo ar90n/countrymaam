@@ -2,8 +2,9 @@ package index
 
 import (
 	"context"
+	"errors"
 	"io"
-	"math"
+	"math/rand"
 	"runtime"
 
 	"github.com/ar90n/countrymaam"
@@ -12,93 +13,86 @@ import (
 	"github.com/ar90n/countrymaam/linalg"
 )
 
+const defaultEntriesNum = 10
+
 type GraphIndex[T linalg.Number, U comparable] struct {
 	Features [][]T
 	Items    []U
 	G        graph.Graph
 }
 
-func (gi GraphIndex[T, U]) findApproxNearest(entry uint, query []T, env linalg.Env[T]) collection.WithPriority[uint] {
-	curIdx := entry
-	curDist := env.SqL2(query, gi.Features[curIdx])
-
-	q := collection.NewPriorityQueue[uint](0)
-	q.Push(curIdx, curDist)
-
-	best := collection.WithPriority[uint]{
-		Item:     uint(0),
-		Priority: math.MaxFloat32,
+func (gi GraphIndex[T, U]) findApproxNearest(entry uint, distFunc func(i uint) float32) (collection.WithPriority[uint], error) {
+	if uint(len(gi.Features)) <= entry {
+		return collection.WithPriority[uint]{}, errors.New("entry is out of range")
 	}
-	visited := map[uint]struct{}{curIdx: {}}
+
+	bestIdx := entry
+	bestDist := distFunc(bestIdx)
+
+	visited := map[uint]struct{}{bestIdx: {}}
 	for {
-		cur, err := q.PopWithPriority()
-		if err != nil {
-			break
-		}
-
-		if best.Priority < cur.Priority {
-			break
-		}
-		best = cur
-
-		for _, e := range gi.G.Nodes[cur.Item].Neighbors {
-			if _, found := visited[e]; found {
+		isChanged := false
+		candidates := gi.G.Nodes[bestIdx].Neighbors
+		for _, candIdx := range candidates {
+			if _, found := visited[candIdx]; found {
 				continue
 			}
-			visited[e] = struct{}{}
+			visited[candIdx] = struct{}{}
 
-			dist := env.SqL2(query, gi.Features[e])
-			q.Push(e, dist)
+			candDist := distFunc(candIdx)
+			if candDist < bestDist {
+				bestIdx = candIdx
+				bestDist = candDist
+				isChanged = true
+			}
 		}
-	}
 
-	return best
-}
-
-func (gi GraphIndex[T, U]) Search(ctx context.Context, query []T, n uint, maxCandidates uint) ([]countrymaam.Candidate[U], error) {
-	ch := gi.SearchChannel(ctx, query)
-
-	items := make([]collection.WithPriority[U], 0, maxCandidates)
-	for item := range ch {
-		if maxCandidates <= uint(len(items)) {
+		if !isChanged {
 			break
 		}
-		items = append(items, collection.WithPriority[U]{Item: item.Item, Priority: item.Distance})
 	}
-	pq := collection.NewPriorityQueueFromSlice(items)
 
-	// take unique neighbors
-	ret := make([]countrymaam.Candidate[U], 0, n)
-	founds := make(map[U]struct{}, maxCandidates)
-	for uint(len(ret)) < n {
-		item, err := pq.PopWithPriority()
-		if err != nil {
-			break
-		}
-
-		if _, ok := founds[item.Item]; ok {
-			continue
-		}
-		founds[item.Item] = struct{}{}
-
-		ret = append(ret, countrymaam.Candidate[U]{Item: item.Item, Distance: item.Priority})
-	}
-	return ret, nil
+	//fmt.Fprintln(os.Stderr, "bestIdx:", bestIdx, "bestDist:", bestDist)
+	return collection.WithPriority[uint]{
+		Item:     bestIdx,
+		Priority: bestDist,
+	}, nil
 }
 
 func (gi GraphIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-chan countrymaam.Candidate[U] {
+	entries := make([]uint, defaultEntriesNum)
+	for i := range entries {
+		entries[i] = uint(rand.Intn(len(gi.Features)))
+	}
+
+	return gi.SearchChannelWithEntries(ctx, query, entries)
+}
+
+func (gi GraphIndex[T, U]) SearchChannelWithEntries(ctx context.Context, query []T, entries []uint) <-chan countrymaam.Candidate[U] {
 	env := linalg.NewLinAlgFromContext[T](ctx)
+	distFunc := func(i uint) float32 {
+		return env.SqL2(query, gi.Features[i])
+	}
 	outputStream := make(chan countrymaam.Candidate[U], streamBufferSize)
 
 	go func() {
 		defer close(outputStream)
 
-		approxNearest := gi.findApproxNearest(0, query, linalg.NewLinAlgFromContext[T](ctx))
-
 		q := collection.NewPriorityQueue[uint](0)
-		q.Push(approxNearest.Item, approxNearest.Priority)
+		visited := map[uint]struct{}{}
+		for _, entry := range entries {
+			approxNearest, err := gi.findApproxNearest(entry, distFunc)
+			if err != nil {
+				continue
+			}
 
-		visited := map[uint]struct{}{approxNearest.Item: {}}
+			if _, found := visited[approxNearest.Item]; found {
+				continue
+			}
+			visited[approxNearest.Item] = struct{}{}
+			q.Push(approxNearest.Item, approxNearest.Priority)
+		}
+
 		//visited := make([]bool, len(gi.Features))
 		for {
 			cur, err := q.PopWithPriority()
@@ -170,6 +164,8 @@ func (agib *GraphIndexBuilder[T, U]) Build(ctx context.Context, features [][]T, 
 	if err != nil {
 		return nil, err
 	}
+
+	g = graph.ConvertToUndirected(g)
 
 	return &GraphIndex[T, U]{
 		Features: features,

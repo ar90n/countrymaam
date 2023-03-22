@@ -3,14 +3,12 @@ package index
 import (
 	"context"
 	"io"
-	"sort"
 	"sync"
 
 	"github.com/ar90n/countrymaam"
 	"github.com/ar90n/countrymaam/collection"
 	"github.com/ar90n/countrymaam/common"
 	"github.com/ar90n/countrymaam/linalg"
-	"github.com/ar90n/countrymaam/pipeline"
 )
 
 type FlatIndex[T linalg.Number, U comparable] struct {
@@ -24,21 +22,6 @@ var _ = (*FlatIndex[float32, int])(nil)
 type chunk struct {
 	Begin uint
 	End   uint
-}
-
-func (fi FlatIndex[T, U]) Search(ctx context.Context, query []T, n uint, maxCandidates uint) ([]countrymaam.Candidate[U], error) {
-	ch := fi.SearchChannel(ctx, query)
-	ch = pipeline.Unique(ctx, ch)
-	ch = pipeline.Take(ctx, maxCandidates, ch)
-	items := pipeline.ToSlice(ctx, ch)
-	sort.Slice(items, func(i, j int) bool {
-		return items[i].Distance < items[j].Distance
-	})
-
-	if uint(len(items)) < n {
-		n = uint(len(items))
-	}
-	return items[:n], nil
 }
 
 func (fi FlatIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-chan countrymaam.Candidate[U] {

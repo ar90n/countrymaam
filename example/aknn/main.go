@@ -13,7 +13,7 @@ import (
 func main() {
 	dim := uint(64)
 	graphBuilder := graph.NewAKnnGraphBuilder[uint8]()
-	graphBuilder.SetK(30).SetRho(1.0)
+	graphBuilder.SetK(10).SetRho(1.0)
 	builder := index.NewGraphIndexBuilder[uint8, int](dim, graphBuilder)
 
 	features, err := example.ReadFeatures(dim)

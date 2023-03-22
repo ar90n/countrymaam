@@ -52,7 +52,7 @@ func createBuilder[T linalg.Number, U comparable](ind string, nDim uint, leafSiz
 		return builder, nil
 	case "aknn":
 		graphBuilder := graph.NewAKnnGraphBuilder[T]()
-		graphBuilder.SetK(128).SetRho(0.7)
+		graphBuilder.SetK(30).SetRho(1.0)
 
 		builder := index.NewGraphIndexBuilder[T, U](nDim, graphBuilder)
 		return builder, nil
@@ -251,7 +251,8 @@ Loop:
 		if err != nil {
 			return err
 		}
-		neighbors, err := index.Search(ctx, query.Feature, query.Neighbors, query.MaxCandidates)
+		ch := index.SearchChannel(ctx, query.Feature)
+		neighbors, err := countrymaam.Search(ch, query.Neighbors, query.MaxCandidates)
 		if err != nil {
 			return err
 		}

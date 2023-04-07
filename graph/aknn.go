@@ -1,6 +1,7 @@
 package graph
 
 import (
+	"fmt"
 	"math/rand"
 	"runtime"
 
@@ -40,6 +41,10 @@ func (agc *AKnnGraphBuilder[T]) SetMaxIter(maxIter uint) *AKnnGraphBuilder[T] {
 func (agc *AKnnGraphBuilder[T]) SetMaxChanges(maxChanges uint) *AKnnGraphBuilder[T] {
 	agc.maxChanges = maxChanges
 	return agc
+}
+
+func (agc AKnnGraphBuilder[T]) GetPrameterString() string {
+	return fmt.Sprintf("k=%d,rho=%f,maxIter=%d", agc.k, agc.rho, agc.maxIter)
 }
 
 func (agc *AKnnGraphBuilder[T]) Build(n uint, distFunc func(i, j uint) float32) (Graph, error) {

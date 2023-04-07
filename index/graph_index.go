@@ -2,6 +2,7 @@ package index
 
 import (
 	"context"
+	"encoding/gob"
 	"errors"
 	"io"
 	"math/rand"
@@ -15,13 +16,12 @@ import (
 
 const defaultEntriesNum = 10
 
-type GraphIndex[T linalg.Number, U comparable] struct {
+type GraphIndex[T linalg.Number] struct {
 	Features [][]T
-	Items    []U
 	G        graph.Graph
 }
 
-func (gi GraphIndex[T, U]) findApproxNearest(entry uint, distFunc func(i uint) float32) (collection.WithPriority[uint], error) {
+func (gi GraphIndex[T]) findApproxNearest(entry uint, distFunc func(i uint) float32) (collection.WithPriority[uint], error) {
 	if uint(len(gi.Features)) <= entry {
 		return collection.WithPriority[uint]{}, errors.New("entry is out of range")
 	}
@@ -59,7 +59,7 @@ func (gi GraphIndex[T, U]) findApproxNearest(entry uint, distFunc func(i uint) f
 	}, nil
 }
 
-func (gi GraphIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-chan countrymaam.Candidate[U] {
+func (gi GraphIndex[T]) SearchChannel(ctx context.Context, query []T) <-chan countrymaam.SearchResult {
 	entries := make([]uint, defaultEntriesNum)
 	for i := range entries {
 		entries[i] = uint(rand.Intn(len(gi.Features)))
@@ -68,12 +68,12 @@ func (gi GraphIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-chan 
 	return gi.SearchChannelWithEntries(ctx, query, entries)
 }
 
-func (gi GraphIndex[T, U]) SearchChannelWithEntries(ctx context.Context, query []T, entries []uint) <-chan countrymaam.Candidate[U] {
+func (gi GraphIndex[T]) SearchChannelWithEntries(ctx context.Context, query []T, entries []uint) <-chan countrymaam.SearchResult {
 	env := linalg.NewLinAlgFromContext[T](ctx)
 	distFunc := func(i uint) float32 {
 		return env.SqL2(query, gi.Features[i])
 	}
-	outputStream := make(chan countrymaam.Candidate[U], streamBufferSize)
+	outputStream := make(chan countrymaam.SearchResult, streamBufferSize)
 
 	go func() {
 		defer close(outputStream)
@@ -103,8 +103,8 @@ func (gi GraphIndex[T, U]) SearchChannelWithEntries(ctx context.Context, query [
 			select {
 			case <-ctx.Done():
 				return
-			case outputStream <- countrymaam.Candidate[U]{
-				Item:     gi.Items[cur.Item],
+			case outputStream <- countrymaam.SearchResult{
+				Index:    cur.Item,
 				Distance: cur.Priority,
 			}:
 			}
@@ -128,18 +128,18 @@ func (gi GraphIndex[T, U]) SearchChannelWithEntries(ctx context.Context, query [
 	return outputStream
 }
 
-func (gi GraphIndex[T, U]) Save(w io.Writer) error {
+func (gi GraphIndex[T]) Save(w io.Writer) error {
 	return saveIndex(gi, w)
 }
 
-type GraphIndexBuilder[T linalg.Number, U comparable] struct {
+type GraphIndexBuilder[T linalg.Number] struct {
 	dim           uint
 	maxGoroutines int
 	graphBuilder  graph.GraphBuilder
 }
 
-func NewGraphIndexBuilder[T linalg.Number, U comparable](dim uint, graphBuilder graph.GraphBuilder) *GraphIndexBuilder[T, U] {
-	creator := GraphIndexBuilder[T, U]{
+func NewGraphIndexBuilder[T linalg.Number](dim uint, graphBuilder graph.GraphBuilder) *GraphIndexBuilder[T] {
+	creator := GraphIndexBuilder[T]{
 		dim:           dim,
 		maxGoroutines: runtime.NumCPU(),
 		graphBuilder:  graphBuilder,
@@ -148,12 +148,17 @@ func NewGraphIndexBuilder[T linalg.Number, U comparable](dim uint, graphBuilder 
 	return &creator
 }
 
-func (agib *GraphIndexBuilder[T, U]) SetMaxGoroutines(maxGoroutines uint) {
+func (agib *GraphIndexBuilder[T]) SetMaxGoroutines(maxGoroutines uint) {
 	agib.maxGoroutines = int(maxGoroutines)
 }
 
-func (agib *GraphIndexBuilder[T, U]) Build(ctx context.Context, features [][]T, items []U) (countrymaam.Index[T, U], error) {
+func (agib GraphIndexBuilder[T]) GetPrameterString() string {
+	return agib.graphBuilder.GetPrameterString()
+}
+
+func (agib *GraphIndexBuilder[T]) Build(ctx context.Context, features [][]T) (*GraphIndex[T], error) {
 	graph.Register[T]()
+	gob.Register(GraphIndex[T]{})
 
 	env := linalg.NewLinAlgFromContext[T](ctx)
 	g, err := agib.graphBuilder.Build(
@@ -167,17 +172,17 @@ func (agib *GraphIndexBuilder[T, U]) Build(ctx context.Context, features [][]T, 
 
 	g = graph.ConvertToUndirected(g)
 
-	return &GraphIndex[T, U]{
+	return &GraphIndex[T]{
 		Features: features,
-		Items:    items,
 		G:        g,
 	}, nil
 }
 
-func LoadGraphIndex[T linalg.Number, U comparable](r io.Reader) (*GraphIndex[T, U], error) {
+func LoadGraphIndex[T linalg.Number](r io.Reader) (*GraphIndex[T], error) {
 	graph.Register[T]()
+	gob.Register(GraphIndex[T]{})
 
-	index, err := loadIndex[GraphIndex[T, U]](r)
+	index, err := loadIndex[GraphIndex[T]](r)
 	if err != nil {
 		return nil, err
 	}

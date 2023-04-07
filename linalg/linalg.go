@@ -8,7 +8,9 @@ import (
 	"golang.org/x/sys/cpu"
 )
 
-const linAlgKey = "linAlg"
+type LinAlgKey string
+
+const linAlgKey LinAlgKey = "linAlg"
 
 type Env[T Number] struct {
 	SqL2        func(x, y []T) float32

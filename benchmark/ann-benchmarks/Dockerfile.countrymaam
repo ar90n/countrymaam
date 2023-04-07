@@ -1,2 +1,3 @@
 FROM ann-benchmarks
-COPY bin/countrymaam /usr/local/bin
+ENTRYPOINT ["python3", "-u", "run_algorithm.py"]
+

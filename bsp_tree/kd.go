@@ -2,6 +2,7 @@ package bsp_tree
 
 import (
 	"errors"
+	"fmt"
 	"math/rand"
 
 	"github.com/ar90n/countrymaam/collection"
@@ -71,7 +72,10 @@ func newKdCutPlane[T linalg.Number](features [][]T, indice []int, nFeatures uint
 		nSkip = rand.Intn(nCandidates) - 1
 	}
 	for i := 0; i < nSkip; i++ {
-		queue.Pop()
+		_, err := queue.Pop()
+		if err != nil {
+			return nil, err
+		}
 	}
 	return queue.Pop()
 }
@@ -101,6 +105,10 @@ func (ktb *KdTreeBuilder[T]) SetSampleFeatures(sampleFeatures uint) *KdTreeBuild
 func (ktb *KdTreeBuilder[T]) SetTopKCandidates(topKCandidates uint) *KdTreeBuilder[T] {
 	ktb.topKCandidates = topKCandidates
 	return ktb
+}
+
+func (ktb KdTreeBuilder[T]) GetPrameterString() string {
+	return fmt.Sprintf("leafs=%d_sampleFeatures=%d_topKCandidates=%d", ktb.leafs, ktb.sampleFeatures, ktb.topKCandidates)
 }
 
 func (ktb *KdTreeBuilder[T]) Build(features [][]T, env linalg.Env[T]) (BspTree[T], error) {

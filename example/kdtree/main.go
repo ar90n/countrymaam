@@ -15,7 +15,7 @@ func main() {
 	dim := uint(64)
 	bspTreeBuilder := bsp_tree.NewKdTreeBuilder[uint8]()
 	bspTreeBuilder.SetLeafs(8)
-	builder := index.NewBspTreeIndexBuilder[uint8, int](dim, bspTreeBuilder)
+	builder := index.NewBspTreeIndexBuilder[uint8](dim, bspTreeBuilder)
 
 	features, err := example.ReadFeatures(dim)
 	if err != nil {
@@ -28,7 +28,7 @@ func main() {
 	}
 
 	ctx := context.Background()
-	ind, err := builder.SetTrees(8).Build(ctx, features, items)
+	ind, err := builder.SetTrees(8).Build(ctx, features)
 	if err != nil {
 		panic(err)
 	}
@@ -39,7 +39,7 @@ func main() {
 		panic(err)
 	}
 
-	ind2, err := index.LoadBspTreeIndex[uint8, int](byteBuffer)
+	ind2, err := index.LoadBspTreeIndex[uint8](byteBuffer)
 	if err != nil {
 		panic(err)
 	}
@@ -54,6 +54,6 @@ func main() {
 	}
 
 	for i, n := range neighbors {
-		fmt.Printf("%d: %d, %f\n", i, n.Item, n.Distance)
+		fmt.Printf("%d: %d, %f\n", i, n.Index, n.Distance)
 	}
 }

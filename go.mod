@@ -1,6 +1,6 @@
 module github.com/ar90n/countrymaam
 
-go 1.19
+go 1.20
 
 require (
 	github.com/sourcegraph/conc v0.3.0

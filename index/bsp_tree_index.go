@@ -2,6 +2,8 @@ package index
 
 import (
 	"context"
+	"encoding/gob"
+	"fmt"
 	"io"
 	"math"
 	"runtime"
@@ -17,9 +19,8 @@ const streamBufferSize = 64
 const queueCapcitySize = 64
 const defaultTrees = 1
 
-type BspTreeIndex[T linalg.Number, U comparable] struct {
+type BspTreeIndex[T linalg.Number] struct {
 	Features [][]T
-	Items    []U
 	Trees    []bsp_tree.BspTree[T]
 	Dim      uint
 }
@@ -29,14 +30,14 @@ type queueItem struct {
 	NodeIdx uint
 }
 
-var _ = (*BspTreeIndex[float32, int])(nil)
+var _ = (*BspTreeIndex[float32])(nil)
 
-func (bsp BspTreeIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-chan countrymaam.Candidate[U] {
-	outputStream := make(chan countrymaam.Candidate[U], streamBufferSize)
+func (bsp BspTreeIndex[T]) SearchChannel(ctx context.Context, query []T) <-chan countrymaam.SearchResult {
+	outputStream := make(chan countrymaam.SearchResult, streamBufferSize)
+	env := linalg.NewLinAlgFromContext[T](ctx)
+
 	go func() error {
 		defer close(outputStream)
-
-		env := linalg.NewLinAlgFromContext[T](ctx)
 
 		queue := collection.NewPriorityQueue[queueItem](queueCapcitySize)
 		for i := range bsp.Trees {
@@ -62,8 +63,8 @@ func (bsp BspTreeIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-ch
 					select {
 					case <-ctx.Done():
 						return nil
-					case outputStream <- countrymaam.Candidate[U]{
-						Item:     bsp.Items[root.Indice[i]],
+					case outputStream <- countrymaam.SearchResult{
+						Index:    uint(root.Indice[i]),
 						Distance: distance,
 					}:
 					}
@@ -90,19 +91,19 @@ func (bsp BspTreeIndex[T, U]) SearchChannel(ctx context.Context, query []T) <-ch
 	return outputStream
 }
 
-func (bsp BspTreeIndex[T, U]) Save(w io.Writer) error {
+func (bsp BspTreeIndex[T]) Save(w io.Writer) error {
 	return saveIndex(bsp, w)
 }
 
-type BspTreeIndexBuilder[T linalg.Number, U comparable] struct {
+type BspTreeIndexBuilder[T linalg.Number] struct {
 	dim            uint
 	trees          uint
 	maxGoroutines  int
 	bspTreeBuilder bsp_tree.BspTreeBuilder[T]
 }
 
-func NewBspTreeIndexBuilder[T linalg.Number, U comparable](dim uint, bspTreeBuilder bsp_tree.BspTreeBuilder[T]) *BspTreeIndexBuilder[T, U] {
-	return &BspTreeIndexBuilder[T, U]{
+func NewBspTreeIndexBuilder[T linalg.Number](dim uint, bspTreeBuilder bsp_tree.BspTreeBuilder[T]) *BspTreeIndexBuilder[T] {
+	return &BspTreeIndexBuilder[T]{
 		dim:            dim,
 		trees:          defaultTrees,
 		maxGoroutines:  runtime.NumCPU(),
@@ -110,18 +111,23 @@ func NewBspTreeIndexBuilder[T linalg.Number, U comparable](dim uint, bspTreeBuil
 	}
 }
 
-func (btib *BspTreeIndexBuilder[T, U]) SetTrees(trees uint) *BspTreeIndexBuilder[T, U] {
+func (btib *BspTreeIndexBuilder[T]) SetTrees(trees uint) *BspTreeIndexBuilder[T] {
 	btib.trees = trees
 	return btib
 }
 
-func (btib *BspTreeIndexBuilder[T, U]) SetMaxGoroutines(maxGoroutines uint) *BspTreeIndexBuilder[T, U] {
+func (btib *BspTreeIndexBuilder[T]) SetMaxGoroutines(maxGoroutines uint) *BspTreeIndexBuilder[T] {
 	btib.maxGoroutines = int(maxGoroutines)
 	return btib
 }
 
-func (btis *BspTreeIndexBuilder[T, U]) Build(ctx context.Context, features [][]T, items []U) (countrymaam.Index[T, U], error) {
+func (btib BspTreeIndexBuilder[T]) GetPrameterString() string {
+	return fmt.Sprintf("trees=%d_%s", btib.trees, btib.bspTreeBuilder.GetPrameterString())
+}
+
+func (btis *BspTreeIndexBuilder[T]) Build(ctx context.Context, features [][]T) (*BspTreeIndex[T], error) {
 	bsp_tree.Register[T]()
+	gob.Register(BspTreeIndex[T]{})
 
 	env := linalg.NewLinAlgFromContext[T](ctx)
 
@@ -144,19 +150,19 @@ func (btis *BspTreeIndexBuilder[T, U]) Build(ctx context.Context, features [][]T
 		return nil, err
 	}
 
-	index := BspTreeIndex[T, U]{
+	index := BspTreeIndex[T]{
 		Features: features,
-		Items:    items,
 		Trees:    trees,
 		Dim:      btis.dim,
 	}
 	return &index, nil
 }
 
-func LoadBspTreeIndex[T linalg.Number, U comparable](r io.Reader) (*BspTreeIndex[T, U], error) {
+func LoadBspTreeIndex[T linalg.Number](r io.Reader) (*BspTreeIndex[T], error) {
 	bsp_tree.Register[T]()
+	gob.Register(BspTreeIndex[T]{})
 
-	index, err := loadIndex[BspTreeIndex[T, U]](r)
+	index, err := loadIndex[BspTreeIndex[T]](r)
 	if err != nil {
 		return nil, err
 	}

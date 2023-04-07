@@ -12,6 +12,7 @@ type Node struct {
 
 type GraphBuilder interface {
 	Build(n uint, distFunc func(i, j uint) float32) (Graph, error)
+	GetPrameterString() string
 }
 
 func Register[T linalg.Number]() {

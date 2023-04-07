@@ -74,6 +74,7 @@ type Node[T linalg.Number] struct {
 
 type BspTreeBuilder[T linalg.Number] interface {
 	Build(features [][]T, env linalg.Env[T]) (BspTree[T], error)
+	GetPrameterString() string
 }
 
 func Register[T linalg.Number]() {

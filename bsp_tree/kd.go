@@ -112,8 +112,6 @@ func (ktb KdTreeBuilder[T]) GetPrameterString() string {
 }
 
 func (ktb *KdTreeBuilder[T]) Build(features [][]T, env linalg.Env[T]) (BspTree[T], error) {
-	//gob.Register(kdCutPlane[T]{})
-
 	indice := make([]int, len(features))
 	for i := range indice {
 		indice[i] = i

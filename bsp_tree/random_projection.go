@@ -9,7 +9,10 @@ import (
 	"github.com/ar90n/countrymaam/linalg"
 )
 
-const rpTreeDefaultLeafs = 16
+const (
+	rpTreeDefaultLeafs = 16
+	rpDefaultNSamples  = 32
+)
 
 var (
 	_ CutPlane[float32] = (*rpCutPlane[float32])(nil)
@@ -49,12 +52,9 @@ func newRpCutPlane[T linalg.Number](features [][]T, indice []int, nFeatures uint
 		lhsCenter[i] = float32(features[indice[lhsIndex]][i])
 		rhsCenter[i] = float32(features[indice[rhsIndex]][i])
 	}
-	nSamples := uint(32)
-	if 0 < nFeatures {
+	nSamples := uint(len(indice))
+	if 0 < nFeatures && nFeatures < nSamples {
 		nSamples = nFeatures
-	}
-	if uint(len(indice)) < nSamples {
-		nSamples = uint(len(indice))
 	}
 
 	for i := 0; i < maxIter; i++ {
@@ -113,7 +113,7 @@ type RpTreeBuilder[T linalg.Number] struct {
 func NewRpTreeBuilder[T linalg.Number]() *RpTreeBuilder[T] {
 	return &RpTreeBuilder[T]{
 		leafs:          rpTreeDefaultLeafs,
-		sampleFeatures: 32,
+		sampleFeatures: rpDefaultNSamples,
 	}
 }
 
@@ -132,8 +132,6 @@ func (rtb *RpTreeBuilder[T]) GetPrameterString() string {
 }
 
 func (rtb *RpTreeBuilder[T]) Build(features [][]T, env linalg.Env[T]) (BspTree[T], error) {
-	//gob.Register(rpCutPlane[T]{})
-
 	indice := make([]int, len(features))
 	for i := range indice {
 		indice[i] = i

@@ -12,9 +12,10 @@ import (
 	"github.com/ar90n/countrymaam/bsp_tree"
 	"github.com/ar90n/countrymaam/graph"
 	"github.com/ar90n/countrymaam/index"
+	"github.com/stretchr/testify/assert"
 )
 
-func getDataset1() ([][]float32, []int) {
+func getDataset1() [][]float32 {
 	features := [][]float32{
 		{-0.662, -0.405, 0.508, -0.991, -0.614, -1.639, 0.637, 0.715},
 		{0.44, -1.795, -0.243, -1.375, 1.154, 0.142, -0.219, -0.711},
@@ -29,33 +30,30 @@ func getDataset1() ([][]float32, []int) {
 		{-1.034, -1.709, -2.693, 1.539, -1.186, 0.29, -0.935, -0.546},
 		{1.954, -1.708, -0.423, -2.241, 1.272, -0.253, -1.013, -0.382},
 	}
-	items := []int{
-		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
-	}
-	return features, items
+	return features
 }
 
 func TestSearchKNNVectors2(t *testing.T) {
 	type Algorithm struct {
 		Name  string
-		Build func(ctx context.Context, features [][]float32, items []int) countrymaam.Index[float32, int]
+		Build func(ctx context.Context, features [][]float32) countrymaam.Index[float32]
 	}
 
 	type TestCase struct {
 		Query    [8]float32
 		K        uint
 		Radius   float64
-		Expected []int
+		Expected []uint
 	}
 
-	dataset, _ := getDataset1()
+	dataset := getDataset1()
 	datasetDim := uint(len(dataset[0]))
 	for _, alg := range []Algorithm{
 		{
 			"FlatIndex",
-			func(ctx context.Context, features [][]float32, items []int) countrymaam.Index[float32, int] {
-				builder := index.NewFlatIndexBuilder[float32, int](datasetDim)
-				index, err := builder.Build(context.Background(), features, items)
+			func(ctx context.Context, features [][]float32) countrymaam.Index[float32] {
+				builder := index.NewFlatIndexBuilder[float32](datasetDim)
+				index, err := builder.Build(context.Background(), features)
 				if err != nil {
 					panic(err)
 				}
@@ -64,12 +62,12 @@ func TestSearchKNNVectors2(t *testing.T) {
 		},
 		{
 			"KDTreeIndex-Leafs:1-Trees:1",
-			func(ctx context.Context, features [][]float32, items []int) countrymaam.Index[float32, int] {
+			func(ctx context.Context, features [][]float32) countrymaam.Index[float32] {
 				kdTreeBuilder := bsp_tree.NewKdTreeBuilder[float32]()
 				kdTreeBuilder.SetLeafs(1)
-				builder := index.NewBspTreeIndexBuilder[float32, int](datasetDim, kdTreeBuilder)
+				builder := index.NewBspTreeIndexBuilder[float32](datasetDim, kdTreeBuilder)
 				builder.SetTrees(1)
-				index, err := builder.Build(context.Background(), features, items)
+				index, err := builder.Build(context.Background(), features)
 				if err != nil {
 					panic(err)
 				}
@@ -78,12 +76,12 @@ func TestSearchKNNVectors2(t *testing.T) {
 		},
 		{
 			"KDTreeIndex-Leafs:5-Trees:1",
-			func(ctx context.Context, features [][]float32, items []int) countrymaam.Index[float32, int] {
+			func(ctx context.Context, features [][]float32) countrymaam.Index[float32] {
 				kdTreeBuilder := bsp_tree.NewKdTreeBuilder[float32]()
 				kdTreeBuilder.SetLeafs(5)
-				builder := index.NewBspTreeIndexBuilder[float32, int](datasetDim, kdTreeBuilder)
+				builder := index.NewBspTreeIndexBuilder[float32](datasetDim, kdTreeBuilder)
 				builder.SetTrees(1)
-				index, err := builder.Build(context.Background(), features, items)
+				index, err := builder.Build(context.Background(), features)
 				if err != nil {
 					panic(err)
 				}
@@ -92,12 +90,12 @@ func TestSearchKNNVectors2(t *testing.T) {
 		},
 		{
 			"KDTreeIndex-Leafs:1-Trees5",
-			func(ctx context.Context, features [][]float32, items []int) countrymaam.Index[float32, int] {
+			func(ctx context.Context, features [][]float32) countrymaam.Index[float32] {
 				kdTreeBuilder := bsp_tree.NewKdTreeBuilder[float32]()
 				kdTreeBuilder.SetLeafs(1)
-				builder := index.NewBspTreeIndexBuilder[float32, int](datasetDim, kdTreeBuilder)
+				builder := index.NewBspTreeIndexBuilder[float32](datasetDim, kdTreeBuilder)
 				builder.SetTrees(5)
-				index, err := builder.Build(context.Background(), features, items)
+				index, err := builder.Build(context.Background(), features)
 				if err != nil {
 					panic(err)
 				}
@@ -106,11 +104,11 @@ func TestSearchKNNVectors2(t *testing.T) {
 		},
 		{
 			"RpTreeIndex-Leafs:1",
-			func(ctx context.Context, features [][]float32, items []int) countrymaam.Index[float32, int] {
+			func(ctx context.Context, features [][]float32) countrymaam.Index[float32] {
 				rpTreeBuilder := bsp_tree.NewRpTreeBuilder[float32]()
 				rpTreeBuilder.SetLeafs(1)
-				builder := index.NewBspTreeIndexBuilder[float32, int](datasetDim, rpTreeBuilder)
-				index, err := builder.Build(context.Background(), features, items)
+				builder := index.NewBspTreeIndexBuilder[float32](datasetDim, rpTreeBuilder)
+				index, err := builder.Build(context.Background(), features)
 				if err != nil {
 					panic(err)
 				}
@@ -119,11 +117,11 @@ func TestSearchKNNVectors2(t *testing.T) {
 		},
 		{
 			"RpTreeIndex-Leafs:5",
-			func(ctx context.Context, features [][]float32, items []int) countrymaam.Index[float32, int] {
+			func(ctx context.Context, features [][]float32) countrymaam.Index[float32] {
 				rpTreeBuilder := bsp_tree.NewRpTreeBuilder[float32]()
 				rpTreeBuilder.SetLeafs(5)
-				builder := index.NewBspTreeIndexBuilder[float32, int](datasetDim, rpTreeBuilder)
-				index, err := builder.Build(context.Background(), features, items)
+				builder := index.NewBspTreeIndexBuilder[float32](datasetDim, rpTreeBuilder)
+				index, err := builder.Build(context.Background(), features)
 				if err != nil {
 					panic(err)
 				}
@@ -132,12 +130,12 @@ func TestSearchKNNVectors2(t *testing.T) {
 		},
 		{
 			"RpTreeIndex-Leafs:1-Trees:5",
-			func(ctx context.Context, features [][]float32, items []int) countrymaam.Index[float32, int] {
+			func(ctx context.Context, features [][]float32) countrymaam.Index[float32] {
 				rpTreeBuilder := bsp_tree.NewRpTreeBuilder[float32]()
 				rpTreeBuilder.SetLeafs(1)
-				builder := index.NewBspTreeIndexBuilder[float32, int](datasetDim, rpTreeBuilder)
+				builder := index.NewBspTreeIndexBuilder[float32](datasetDim, rpTreeBuilder)
 				builder.SetTrees(5)
-				index, err := builder.Build(context.Background(), features, items)
+				index, err := builder.Build(context.Background(), features)
 				if err != nil {
 					panic(err)
 				}
@@ -146,11 +144,30 @@ func TestSearchKNNVectors2(t *testing.T) {
 		},
 		{
 			"AKnnGraphIndex",
-			func(ctx context.Context, features [][]float32, items []int) countrymaam.Index[float32, int] {
+			func(ctx context.Context, features [][]float32) countrymaam.Index[float32] {
 				graphBuilder := graph.NewAKnnGraphBuilder[float32]()
-				graphBuilder.SetK(5).SetRho(1.0)
-				builder := index.NewGraphIndexBuilder[float32, int](datasetDim, graphBuilder)
-				index, err := builder.Build(context.Background(), features, items)
+				graphBuilder.SetK(3).SetRho(0.3)
+				builder := index.NewGraphIndexBuilder[float32](datasetDim, graphBuilder)
+				index, err := builder.Build(context.Background(), features)
+				if err != nil {
+					panic(err)
+				}
+				return index
+			},
+		},
+		{
+			"RpAKnnGraphIndex",
+			func(ctx context.Context, features [][]float32) countrymaam.Index[float32] {
+				rpTreeBuilder := bsp_tree.NewRpTreeBuilder[float32]()
+				rpBuilder := index.NewBspTreeIndexBuilder[float32](datasetDim, rpTreeBuilder)
+				rpBuilder.SetTrees(1)
+
+				graphBuilder := graph.NewAKnnGraphBuilder[float32]()
+				graphBuilder.SetK(3).SetRho(0.3)
+				aknnBuilder := index.NewGraphIndexBuilder[float32](datasetDim, graphBuilder)
+
+				builder := index.NewCompositeIndexBuilder[float32, index.BspTreeIndex[float32], index.GraphIndex[float32]](rpBuilder, aknnBuilder)
+				index, err := builder.Build(context.Background(), features)
 				if err != nil {
 					panic(err)
 				}
@@ -159,46 +176,47 @@ func TestSearchKNNVectors2(t *testing.T) {
 		},
 	} {
 		t.Run(alg.Name, func(t *testing.T) {
-			features, items := getDataset1()
+			features := getDataset1()
 			ctx := context.Background()
-			index := alg.Build(ctx, features, items)
+			index := alg.Build(ctx, features)
 
 			for c, tc := range []TestCase{
 				{
 					Query:    [8]float32{-0.621, -0.586, -0.468, 0.494, 0.485, 0.407, 1.273, -1.1},
 					K:        1,
-					Expected: []int{5},
+					Expected: []uint{5},
 				},
 				{
 					Query:    [8]float32{-0.83059702, -1.01070708, -0.15162675, -1.32760066, -1.19706362, -0.21952724, -0.27582108, 0.93780233},
 					K:        2,
-					Expected: []int{0, 9},
+					Expected: []uint{0, 9},
 				},
 				{
 					Query:    [8]float32{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
 					K:        5,
-					Expected: []int{2, 4, 5, 7, 9},
+					Expected: []uint{2, 4, 5, 7, 9},
 				},
 				{
 					Query:    [8]float32{-0.621, -0.586, -0.468, 0.494, 0.485, 0.407, 1.273, -1.1},
 					K:        10,
-					Expected: []int{5, 7, 2, 8, 4, 1, 6, 0, 9, 3},
+					Expected: []uint{5, 7, 2, 8, 4, 1, 6, 0, 9, 3},
 				},
 				{
 					Query:    [8]float32{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
 					K:        5,
-					Expected: []int{2, 4, 5, 7, 9},
+					Expected: []uint{2, 4, 5, 7, 9},
 				},
 			} {
 				t.Run(fmt.Sprint(c), func(t *testing.T) {
-					results, _ := index.Search(ctx, tc.Query[:], tc.K, 64)
+					ch := index.SearchChannel(ctx, tc.Query[:])
+					results, _ := countrymaam.Search(ch, tc.K, 64)
 					if len(results) != len(tc.Expected) {
 						t.Errorf("Expected 1 result, got %d", len(results))
 					}
 
-					resultIndice := []int{}
+					resultIndice := []uint{}
 					for _, v := range results {
-						resultIndice = append(resultIndice, v.Item)
+						resultIndice = append(resultIndice, v.Index)
 					}
 					if !reflect.DeepEqual(resultIndice, tc.Expected) {
 						t.Errorf("Expected results to be %v, got %v", tc.Expected, results)
@@ -221,8 +239,8 @@ func TestBuildIndexWhenPoolIsEmpty(t *testing.T) {
 		{
 			"FlatIndex",
 			func(ctx context.Context, features [][]float32, items []int) error {
-				builder := index.NewFlatIndexBuilder[float32, int](datasetDim)
-				_, err := builder.Build(context.Background(), features, items)
+				builder := index.NewFlatIndexBuilder[float32](datasetDim)
+				_, err := builder.Build(context.Background(), features)
 				return err
 			},
 			true,
@@ -231,8 +249,8 @@ func TestBuildIndexWhenPoolIsEmpty(t *testing.T) {
 			"BspTreeIndex",
 			func(ctx context.Context, features [][]float32, items []int) error {
 				kdTreeBuilder := bsp_tree.NewKdTreeBuilder[float32]()
-				builder := index.NewBspTreeIndexBuilder[float32, int](datasetDim, kdTreeBuilder)
-				_, err := builder.Build(context.Background(), features, items)
+				builder := index.NewBspTreeIndexBuilder[float32](datasetDim, kdTreeBuilder)
+				_, err := builder.Build(context.Background(), features)
 				return err
 			},
 			true,
@@ -241,8 +259,8 @@ func TestBuildIndexWhenPoolIsEmpty(t *testing.T) {
 			"GraphIndex",
 			func(ctx context.Context, features [][]float32, items []int) error {
 				graphBuilder := graph.NewAKnnGraphBuilder[float32]()
-				builder := index.NewGraphIndexBuilder[float32, int](datasetDim, graphBuilder)
-				_, err := builder.Build(context.Background(), features, items)
+				builder := index.NewGraphIndexBuilder[float32](datasetDim, graphBuilder)
+				_, err := builder.Build(context.Background(), features)
 				return err
 			},
 			true,
@@ -258,7 +276,7 @@ func TestBuildIndexWhenPoolIsEmpty(t *testing.T) {
 	}
 }
 
-func testSerDes[I countrymaam.Index[float32, int]](t *testing.T, ind *I, loadFunc func(r io.Reader) (*I, error)) error {
+func testSerDes[I countrymaam.Index[float32]](t *testing.T, ind *I, loadFunc func(r io.Reader) (*I, error)) error {
 	buf := make([]byte, 0)
 	byteBuffer := bytes.NewBuffer(buf)
 	if err := (*ind).Save(byteBuffer); err != nil {
@@ -270,9 +288,13 @@ func testSerDes[I countrymaam.Index[float32, int]](t *testing.T, ind *I, loadFun
 		return err
 	}
 
-	if !reflect.DeepEqual(ind, ind2) {
+	if !reflect.DeepEqual(*ind, *ind2) {
 		return fmt.Errorf("Expected %v, got %v", ind, ind2)
 	}
+
+	ch := (*ind).SearchChannel(context.Background(), []float32{1.606, 1.256, -0.644, -0.858, 0.743, -0.063, 0.042, -1.539})
+	a := <-ch
+	assert.Equal(t, uint(6), a.Index)
 
 	return nil
 }
@@ -292,15 +314,13 @@ func TestSerDesKNNVectors(t *testing.T) {
 		{-1.034, -1.709, -2.693, 1.539, -1.186, 0.29, -0.935, -0.546},
 		{1.954, -1.708, -0.423, -2.241, 1.272, -0.253, -1.013, -0.382},
 	}
-	items := []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
 	datasetDim := uint(len(features[0]))
 
 	t.Run("FlatIndex", func(t *testing.T) {
-		builder := index.NewFlatIndexBuilder[float32, int](datasetDim)
-		iInd, _ := builder.Build(context.Background(), features, items)
-		ind := iInd.(*index.FlatIndex[float32, int])
-		loadFunc := func(r io.Reader) (*index.FlatIndex[float32, int], error) {
-			return index.LoadFlatIndex[float32, int](r)
+		builder := index.NewFlatIndexBuilder[float32](datasetDim)
+		ind, _ := builder.Build(context.Background(), features)
+		loadFunc := func(r io.Reader) (*index.FlatIndex[float32], error) {
+			return index.LoadFlatIndex[float32](r)
 		}
 		testSerDes(t, ind, loadFunc)
 	})
@@ -308,11 +328,10 @@ func TestSerDesKNNVectors(t *testing.T) {
 		kdTreeBuilder := bsp_tree.NewKdTreeBuilder[float32]()
 		kdTreeBuilder.SetSampleFeatures(100).SetTopKCandidates(5).SetLeafs(1)
 
-		builder := index.NewBspTreeIndexBuilder[float32, int](datasetDim, kdTreeBuilder)
-		iInd, _ := builder.Build(context.Background(), features, items)
-		ind := iInd.(*index.BspTreeIndex[float32, int])
-		loadFunc := func(r io.Reader) (*index.BspTreeIndex[float32, int], error) {
-			return index.LoadBspTreeIndex[float32, int](r)
+		builder := index.NewBspTreeIndexBuilder[float32](datasetDim, kdTreeBuilder)
+		ind, _ := builder.Build(context.Background(), features)
+		loadFunc := func(r io.Reader) (*index.BspTreeIndex[float32], error) {
+			return index.LoadBspTreeIndex[float32](r)
 		}
 		testSerDes(t, ind, loadFunc)
 	})
@@ -320,11 +339,10 @@ func TestSerDesKNNVectors(t *testing.T) {
 		rpTreeBuilder := bsp_tree.NewRpTreeBuilder[float32]()
 		rpTreeBuilder.SetSampleFeatures(32).SetLeafs(1)
 
-		builder := index.NewBspTreeIndexBuilder[float32, int](datasetDim, rpTreeBuilder)
-		iInd, _ := builder.Build(context.Background(), features, items)
-		ind := iInd.(*index.BspTreeIndex[float32, int])
-		loadFunc := func(r io.Reader) (*index.BspTreeIndex[float32, int], error) {
-			return index.LoadBspTreeIndex[float32, int](r)
+		builder := index.NewBspTreeIndexBuilder[float32](datasetDim, rpTreeBuilder)
+		ind, _ := builder.Build(context.Background(), features)
+		loadFunc := func(r io.Reader) (*index.BspTreeIndex[float32], error) {
+			return index.LoadBspTreeIndex[float32](r)
 		}
 		testSerDes(t, ind, loadFunc)
 	})
@@ -332,11 +350,29 @@ func TestSerDesKNNVectors(t *testing.T) {
 	t.Run("GraphIndex", func(t *testing.T) {
 		graphBuilder := graph.NewAKnnGraphBuilder[float32]()
 		graphBuilder.SetK(2)
-		builder := index.NewGraphIndexBuilder[float32, int](datasetDim, graphBuilder)
-		iInd, _ := builder.Build(context.Background(), features, items)
-		ind := iInd.(*index.GraphIndex[float32, int])
-		loadFunc := func(r io.Reader) (*index.GraphIndex[float32, int], error) {
-			return index.LoadGraphIndex[float32, int](r)
+		builder := index.NewGraphIndexBuilder[float32](datasetDim, graphBuilder)
+		ind, _ := builder.Build(context.Background(), features)
+		loadFunc := func(r io.Reader) (*index.GraphIndex[float32], error) {
+			return index.LoadGraphIndex[float32](r)
+		}
+		testSerDes(t, ind, loadFunc)
+	})
+
+	t.Run("ComposeIndex", func(t *testing.T) {
+		rpTreeBuilder := bsp_tree.NewRpTreeBuilder[float32]()
+		rpTreeBuilder.SetSampleFeatures(32).SetLeafs(8)
+		rpBuilder := index.NewBspTreeIndexBuilder[float32](datasetDim, rpTreeBuilder)
+		rpBuilder.SetTrees(1)
+
+		graphBuilder := graph.NewAKnnGraphBuilder[float32]()
+		graphBuilder.SetK(4).SetRho(0.3)
+		aknnBuilder := index.NewGraphIndexBuilder[float32](datasetDim, graphBuilder)
+
+		builder := index.NewCompositeIndexBuilder[float32, index.BspTreeIndex[float32], index.GraphIndex[float32]](rpBuilder, aknnBuilder)
+		ind, _ := builder.Build(context.Background(), features)
+
+		loadFunc := func(r io.Reader) (*index.CompositeIndex[float32], error) {
+			return index.LoadCompositeIndex[float32](r)
 		}
 		testSerDes(t, ind, loadFunc)
 	})

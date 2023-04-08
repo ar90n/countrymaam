@@ -1,6 +1,9 @@
 from __future__ import absolute_import
 from .base import BaseANN
+from .countrymaam_wrapper import FlatIndex, KdTreeIndex, RpTreeIndex, AKnnIndex, RpAKnnIndex, get_index_class, IndexType, CountrymaamParam
+from dataclasses import dataclass, asdict
 
+import socket
 import subprocess
 
 import struct
@@ -13,97 +16,50 @@ import random
 import string
 
 
-def get_countrymaam_launch_cmd():
-    if bin_path := os.environ.get("COUNTRYMAAM_BIN"):
-        return [bin_path]
-
-    return [
-        "go",
-        "run",
-        "../../../../../cmd/countrymaam/main.go"
-    ]
 
 class Countrymaam(BaseANN):
     def __init__(self):
         self._index = None
-        self._n_trees = None
-        self._leaf_size = None
-        self._pipe = None
-        self._use_profile = None
-        self._unique_id = "".join(random.choices(string.ascii_lowercase, k=16))
+        self._index_type = None
+        self._param = CountrymaamParam()
 
     def set_index_param(self, param):
-        self._index = param.get("index", "rkd-tree")
-        self._n_trees = param.get("n_trees", 8)
-        self._leaf_size = param.get("leaf_size", 8)
-        self._use_profile = param.get("use_profile", False)
+        self._index_type = IndexType.from_str(param["index"])
+        self._param.use_profile = param.get("use_profile", False)
+        self._param.trees = param.get("trees")
+        self._param.leafs = param.get("leafs")
+        self._param.sample_features = param.get("sample_features")
+        self._param.top_k_candidates = param.get("top_k_candidates")
+        self._param.neighbors = param.get("neighbors")
+        self._param.rho = param.get("rho")
 
     def has_train(self):
         return False
 
     def add(self, vecs):
-        if vecs.dtype != np.uint8:
+        if vecs.dtype != np.float32:
             vecs = vecs.astype(np.float32)
-        unit_char = "f" if vecs.dtype == np.float32 else "B"
-        self._dtype = "float32" if vecs.dtype == np.float32 else "uint8"
 
-        D = len(vecs[0])
-
-        index_file_path = f"index_{self._unique_id}_{os.getpid()}.bin"
-        profile_file_path = f"/tmp/cpu_train_{self._index}_{self._leaf_size}_{self._n_trees}_{self._unique_id}.pprof" if self._use_profile else ""
-        p = subprocess.Popen([
-            *get_countrymaam_launch_cmd(),
-            "train",
-            "--dim", str(D),
-            "--dtype", self._dtype,
-            "--index", self._index,
-            "--leaf-size", str(self._leaf_size),
-            "--tree-num", str(self._n_trees),
-       	    "--output", index_file_path,
-            "--profile-output", profile_file_path
-        ], stdin=subprocess.PIPE)
-        p.stdin.write(struct.pack(f"={vecs.size}{unit_char}", *np.ravel(vecs)))
-        p.communicate()
-        p.stdin.close()
-
-        self.read(index_file_path, D)
+        clz = get_index_class(self._index_type)
+        self._index = clz(vecs, **asdict(self._param))
 
     def query(self, vecs, topk, param):
-        res = []
-        for v in vecs:
-            if vecs.dtype != np.uint8:
-                vecs = vecs.astype(np.float32)
-            unit_char = "f" if vecs.dtype == np.float32 else "B"
-            self._pipe.stdin.write(struct.pack(f"=i", int(param["search_k"])))
-            self._pipe.stdin.write(struct.pack(f"=i", int(topk)))
-            self._pipe.stdin.write(struct.pack(f"={v.size}{unit_char}", *v))
-            self._pipe.stdin.flush()
+        if vecs.dtype != np.uint8:
+            vecs = vecs.astype(np.float32)
 
-            try:
-                rn = struct.unpack("=i", self._pipe.stdout.read(4))[0]
-            except:
-                print("\n".join(self._pipe.stderr.readlines()), file=sys.stderr)
-            ret = [0] * rn
-            for i in range(rn):
-                ret[i] = struct.unpack("=i", self._pipe.stdout.read(4))[0]
-            res.append(np.array(ret))
+        res= self._index.search(vecs, topk, **param)
         return res
-
 
     def write(self, path):
         pass
 
-    def read(self, path, D):
-        profile_file_path = f"/tmp/cpu_predict_{self._index}_{self._leaf_size}_{self._n_trees}_{self._unique_id}.pprof" if self._use_profile else ""
-        self._pipe = subprocess.Popen([
-            *get_countrymaam_launch_cmd(),
-            "predict",
-            "--dim", str(D),
-            "--dtype", self._dtype,
-            "--index", self._index,
-       	    "--input", path,
-            "--profile-output", profile_file_path
-        ], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
     def stringify_index_param(self, param):
-        return f"Countrymaam(index={self._index}, leaf_size={self._leaf_size} n_trees={self._n_trees})"
+        ret = []
+        for k, v in asdict(self._param).items():
+            if v is None:
+                continue
+            if k == "use_profile":
+                continue
+            ret.append(f"{k}={v}")
+        param_str = ", ".join(ret)
+        return f"Countrymaam(index={self._index}, {param_str})"

@@ -1,7 +1,9 @@
 from __future__ import absolute_import
 from ann_benchmarks.algorithms.base import BaseANN
+from .countrymaam_wrapper import FlatIndex, KdTreeIndex, RpTreeIndex, AKnnIndex, RpAKnnIndex, get_index_class, IndexType, CountrymaamParam
 
 import subprocess
+from dataclasses import asdict
 
 import struct
 import subprocess
@@ -15,51 +17,46 @@ import string
 class Countrymaam(BaseANN):
     def __init__(self, metric, params):
         self._metric = metric
-        self._index = params.get("index", "kd-tree")
-        self._n_trees = params.get("n_trees", 8)
-        self._leaf_size = params.get("leaf_size", 8)
+        self._index = None
+        self._index_type =  IndexType.from_str(params["index"])
+        self._param = CountrymaamParam(
+            trees=params.get("trees"),
+            leafs=params.get("leafs"),
+            sample_features=params.get("sample_features"),
+            top_k_candidates=params.get("top_k_candidates"),
+            neighbors=params.get("neighbors"),
+            rho=params.get("rho"),
+            use_profile=params.get("use_profile", False), 
+        )
 
     def fit(self, X):
-        X = X.astype(np.float64)
-        suffix = "".join(random.choices(string.ascii_lowercase, k=16))
-        index_file_path = f"index_{suffix}_{os.getpid()}.bin"
-        p = subprocess.Popen([
-            "countrymaam",
-            "train",
-            "--dim", str(len(X[0])),
-            "--index", self._index,
-            "--leaf-size", str(self._leaf_size),
-            "--tree-num", str(self._n_trees),
-       	    "--output", index_file_path
-        ], stdin=subprocess.PIPE)
+        if X.dtype != np.float32:
+            X = X.astype(np.float32)
 
-        p.stdin.write(struct.pack(f"={X.size}f", *np.ravel(X)))
-        p.communicate()
-        p.stdin.close()
+        clz = get_index_class(self._index_type)
+        self._index = clz(X, **asdict(self._param))
 
-        self._pipe = subprocess.Popen([
-            "countrymaam",
-            "predict",
-            "--dim", str(len(X[0])),
-            "--index", self._index,
-       	    "--input", index_file_path
-        ], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    def set_query_arguments(self, n):
+        self._query_param = {
+            "n": n,
+        } 
 
-    def set_query_arguments(self, search_k):
-        self._search_k = search_k
+    def query(self, v, k):
+        if v.dtype != np.float32:
+            v = v.astype(np.float32)
+        v = v.reshape(1, -1)
 
-    def query(self, v, n):
-        v = v.astype(np.float64)
-        self._pipe.stdin.write(struct.pack(f"=i", self._search_k))
-        self._pipe.stdin.write(struct.pack(f"=i", n))
-        self._pipe.stdin.write(struct.pack(f"={v.size}f", *v))
-        self._pipe.stdin.flush()
-
-        rn = struct.unpack("=i", self._pipe.stdout.read(4))[0]
-        ret = [0] * rn
-        for i in range(rn):
-            ret[i] = struct.unpack("=i", self._pipe.stdout.read(4))[0]
-        return np.array(ret)
+        res= self._index.search(v, k, **self._query_param)
+        return res[0]
 
     def __str__(self):
-        return f"Countrymaam(index={self._index}, leaf_size={self._leaf_size} n_trees={self._n_trees}, search_k={self._search_k})"
+        ret = []
+        for k, v in asdict(self._param).items():
+            if v is None:
+                continue
+            if k == "use_profile":
+                continue
+            ret.append(f"{k}={v}")
+        param_str = ", ".join(ret)
+        print(f"Countrymaam(index={self._index}, {param_str})")
+        return f"Countrymaam(index={self._index}, {param_str})"

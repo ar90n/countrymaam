@@ -3,21 +3,37 @@
 name: countrymaam
 
 param_index:
-  - n_trees: 16
-    index: rkd-tree
-    leaf_size: 8
+  - index: aknn
+    neighbors: 30
+    rho: 1.0
     use_profile: false
-  - n_trees: 400
-    index: rkd-tree
-    leaf_size: 8
+
+  - index: kd_tree
+    trees: 8
+    leafs: 16
+    sample_features: 100
+    top_k_candidates: 5
     use_profile: false
-  - n_trees: 200
-    index: rrp-tree
-    leaf_size: 8
+  - index: kd_tree
+    trees: 16 
+    leafs: 8
+    sample_features: 100
+    top_k_candidates: 5
     use_profile: false
-  - n_trees: 400
-    index: rrp-tree
-    leaf_size: 8
+
+
+  - index: rp_tree
+    trees: 8
+    leafs: 16
+    sample_features: 32
+    use_profile: true
+  - index: rp_tree
+    trees: 16 
+    leafs: 8
+    sample_features: 32
+    use_profile: true
+
+  - index: rp_aknn
     use_profile: false
 
 param_query:
@@ -26,3 +42,4 @@ param_query:
     - 200
     - 400
     - 800
+      

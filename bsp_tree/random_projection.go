@@ -2,6 +2,7 @@ package bsp_tree
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"math/rand"
 
@@ -124,6 +125,10 @@ func (rtb *RpTreeBuilder[T]) SetLeafs(leafs uint) *RpTreeBuilder[T] {
 func (rtb *RpTreeBuilder[T]) SetSampleFeatures(sampleFeatures uint) *RpTreeBuilder[T] {
 	rtb.sampleFeatures = sampleFeatures
 	return rtb
+}
+
+func (rtb *RpTreeBuilder[T]) GetPrameterString() string {
+	return fmt.Sprintf("leafs=%d_sampleFeatures=%d", rtb.leafs, rtb.sampleFeatures)
 }
 
 func (rtb *RpTreeBuilder[T]) Build(features [][]T, env linalg.Env[T]) (BspTree[T], error) {

@@ -5,6 +5,10 @@ import (
 	"fmt"
 )
 
+var (
+	ErrEmptyPriorityQueue = errors.New("empty priority queue")
+)
+
 type WithPriority[T any] struct {
 	Item     T
 	Priority float32
@@ -30,7 +34,7 @@ func (pq *priorityQueue[T]) Pop() WithPriority[T] {
 }
 
 // derived from container/heap
-func (pq priorityQueue[T]) Init() {
+func (pq priorityQueue[T]) init() {
 	// heapify
 	n := pq.Len()
 	for i := n/2 - 1; i >= 0; i-- {
@@ -98,7 +102,7 @@ func NewPriorityQueue[T any](capacity int) *PriorityQueue[T] {
 
 func NewPriorityQueueFromSlice[T any](data []WithPriority[T]) *PriorityQueue[T] {
 	pq := priorityQueue[T](data)
-	pq.Init()
+	pq.init()
 	return &PriorityQueue[T]{
 		priorityQueue: pq,
 	}
@@ -115,7 +119,7 @@ func (pq *PriorityQueue[T]) Push(item T, priority float32) {
 
 func (pq *PriorityQueue[T]) PopWithPriority() (ret WithPriority[T], _ error) {
 	if pq.Len() == 0 {
-		return ret, errors.New("empty queue")
+		return ret, ErrEmptyPriorityQueue
 	}
 	item := pq.priorityQueue.Pop()
 	return item, nil

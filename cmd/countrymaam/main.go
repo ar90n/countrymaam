@@ -4,9 +4,11 @@ import (
 	"bufio"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"os"
 	"runtime/pprof"
 
@@ -24,44 +26,58 @@ type Query[T linalg.Number] struct {
 	MaxCandidates uint
 }
 
-func createBuilder[T linalg.Number, U comparable](ind string, nDim uint, leafSize uint, nTrees uint) (countrymaam.IndexBuilder[T, U], error) {
+func createIndex[T linalg.Number](ctx context.Context, features [][]T, ind string, nDim uint, leafSize uint, nTrees uint) (countrymaam.Index[T], error) {
 	switch ind {
 	case "flat":
-		return index.NewFlatIndexBuilder[T, U](nDim), nil
+		builder := index.NewFlatIndexBuilder[T](nDim)
+		return builder.Build(ctx, features)
 	case "kd-tree":
 		kdTreeBuilder := bsp_tree.NewKdTreeBuilder[T]()
 		kdTreeBuilder.SetLeafs(leafSize)
-		builder := index.NewBspTreeIndexBuilder[T, U](nDim, kdTreeBuilder)
-		return builder, nil
+		builder := index.NewBspTreeIndexBuilder[T](nDim, kdTreeBuilder)
+		return builder.Build(ctx, features)
 	case "rkd-tree":
 		kdTreeBuilder := bsp_tree.NewKdTreeBuilder[T]()
 		kdTreeBuilder.SetLeafs(leafSize).SetSampleFeatures(100).SetTopKCandidates(5)
-		builder := index.NewBspTreeIndexBuilder[T, U](nDim, kdTreeBuilder)
+		builder := index.NewBspTreeIndexBuilder[T](nDim, kdTreeBuilder)
 		builder.SetTrees(nTrees)
-		return builder, nil
+		return builder.Build(ctx, features)
 	case "rp-tree":
 		rpTreeBuilder := bsp_tree.NewRpTreeBuilder[T]()
 		rpTreeBuilder.SetLeafs(leafSize)
-		builder := index.NewBspTreeIndexBuilder[T, U](nDim, rpTreeBuilder)
-		return builder, nil
+		builder := index.NewBspTreeIndexBuilder[T](nDim, rpTreeBuilder)
+		return builder.Build(ctx, features)
 	case "rrp-tree":
 		rpTreeBuilder := bsp_tree.NewRpTreeBuilder[T]()
 		rpTreeBuilder.SetLeafs(leafSize).SetSampleFeatures(32)
-		builder := index.NewBspTreeIndexBuilder[T, U](nDim, rpTreeBuilder)
+		builder := index.NewBspTreeIndexBuilder[T](nDim, rpTreeBuilder)
 		builder.SetTrees(nTrees)
-		return builder, nil
+		return builder.Build(ctx, features)
 	case "aknn":
 		graphBuilder := graph.NewAKnnGraphBuilder[T]()
-		graphBuilder.SetK(128).SetRho(0.7)
+		graphBuilder.SetK(30).SetRho(1.0)
 
-		builder := index.NewGraphIndexBuilder[T, U](nDim, graphBuilder)
-		return builder, nil
+		builder := index.NewGraphIndexBuilder[T](nDim, graphBuilder)
+		return builder.Build(ctx, features)
+	case "rpaknn":
+		rpTreeBuilder := bsp_tree.NewRpTreeBuilder[T]()
+		rpTreeBuilder.SetLeafs(leafSize)
+		rpBuilder := index.NewBspTreeIndexBuilder[T](nDim, rpTreeBuilder)
+		rpBuilder.SetTrees(1)
+
+		graphBuilder := graph.NewAKnnGraphBuilder[T]()
+		graphBuilder.SetK(30).SetRho(1.0)
+		aknnBuilder := index.NewGraphIndexBuilder[T](nDim, graphBuilder)
+
+		builder := index.NewCompositeIndexBuilder[T, index.BspTreeIndex[T], index.GraphIndex[T]](rpBuilder, aknnBuilder)
+		builder.SetEntriesNum(32)
+		return builder.Build(context.Background(), features)
 	default:
 		return nil, fmt.Errorf("unknown index name: %s", ind)
 	}
 }
 
-func loadIndex[T linalg.Number, U comparable](ind string, inputPath string) (countrymaam.Index[T, U], error) {
+func loadIndex[T linalg.Number](ind string, inputPath string) (countrymaam.Index[T], error) {
 	file, err := os.Open(inputPath)
 	if err != nil {
 		return nil, err
@@ -70,17 +86,19 @@ func loadIndex[T linalg.Number, U comparable](ind string, inputPath string) (cou
 
 	switch ind {
 	case "flat":
-		return index.LoadFlatIndex[T, U](file)
+		return index.LoadFlatIndex[T](file)
 	case "kd-tree":
-		return index.LoadBspTreeIndex[T, U](file)
+		return index.LoadBspTreeIndex[T](file)
 	case "rkd-tree":
-		return index.LoadBspTreeIndex[T, U](file)
+		return index.LoadBspTreeIndex[T](file)
 	case "rp-tree":
-		return index.LoadBspTreeIndex[T, U](file)
+		return index.LoadBspTreeIndex[T](file)
 	case "rrp-tree":
-		return index.LoadBspTreeIndex[T, U](file)
+		return index.LoadBspTreeIndex[T](file)
 	case "aknn":
-		return index.LoadGraphIndex[T, U](file)
+		return index.LoadGraphIndex[T](file)
+	case "rpaknn":
+		return index.LoadCompositeIndex[T](file)
 	default:
 		return nil, fmt.Errorf("unknown index name: %s", ind)
 	}
@@ -157,16 +175,9 @@ func train[T linalg.Number](nDim uint, indexName string, leafSize uint, outputNa
 		defer pprof.StopCPUProfile()
 	}
 
-	ctx := context.Background()
-	builder, err := createBuilder[T, int](indexName, nDim, leafSize, nTrees)
-	if err != nil {
-		return err
-	}
-
 	log.Println("reading data...")
 	r := bufio.NewReader(os.Stdin)
 	features := make([][]T, 0, 100000)
-	items := make([]int, 0, 100000)
 Loop:
 	for i := 0; ; i++ {
 		feature, err := readFeature[T](r, nDim)
@@ -178,12 +189,12 @@ Loop:
 		}
 
 		features = append(features, feature)
-		items = append(items, i)
 	}
 	log.Println("done")
 
 	log.Println("building index...")
-	index, err := builder.Build(ctx, features, items)
+	ctx := context.Background()
+	index, err := createIndex(ctx, features, indexName, nDim, leafSize, nTrees)
 	if err != nil {
 		return err
 	}
@@ -209,19 +220,43 @@ func predictAction(c *cli.Context) error {
 	indexName := c.String("index")
 	inputName := c.String("input")
 	profileOutputName := c.String("profile-output")
+	sockPath := c.String("sock")
+
+	r := bufio.NewReader(os.Stdin)
+	w := bufio.NewWriter(os.Stdout)
+
+	if sockPath != "" {
+		os.Remove(sockPath)
+
+		listener, err := net.Listen("unix", sockPath)
+		if err != nil {
+			return err
+		}
+
+		conn, err := listener.Accept()
+		if err != nil {
+			return err
+		}
+		defer conn.Close()
+
+		r = bufio.NewReader(conn)
+		w = bufio.NewWriter(conn)
+	}
+
+	log.Println("start predictAction")
 
 	switch dtype {
 	case "float32":
-		return predict[float32](nDim, indexName, inputName, profileOutputName)
+		return predict[float32](nDim, indexName, inputName, profileOutputName, r, w)
 	case "uint8":
-		return predict[uint8](nDim, indexName, inputName, profileOutputName)
+		return predict[uint8](nDim, indexName, inputName, profileOutputName, r, w)
 	default:
 		return fmt.Errorf("unknown dtype: %s", dtype)
 	}
 
 }
 
-func predict[T linalg.Number](nDim uint, indexName string, inputName string, profileOutputName string) error {
+func predict[T linalg.Number](nDim uint, indexName string, inputName string, profileOutputName string, r *bufio.Reader, w *bufio.Writer) error {
 	if profileOutputName != "" {
 		f, err := os.Create(profileOutputName)
 		if err != nil {
@@ -236,12 +271,11 @@ func predict[T linalg.Number](nDim uint, indexName string, inputName string, pro
 	}
 
 	ctx := context.Background()
-	index, err := loadIndex[T, int](indexName, inputName)
+	index, err := loadIndex[T](indexName, inputName)
 	if err != nil {
 		return err
 	}
 
-	r := bufio.NewReader(os.Stdin)
 Loop:
 	for {
 		query, err := readQuery[T](r, nDim)
@@ -251,19 +285,28 @@ Loop:
 		if err != nil {
 			return err
 		}
-		neighbors, err := index.Search(ctx, query.Feature, query.Neighbors, query.MaxCandidates)
+
+		ch := index.SearchChannel(ctx, query.Feature)
+		neighbors, err := countrymaam.Search(ch, query.Neighbors, query.MaxCandidates)
 		if err != nil {
 			return err
 		}
 
-		var wtr = bufio.NewWriter(os.Stdout)
-		binary.Write(wtr, binary.LittleEndian, uint32(len(neighbors)))
-		for _, n := range neighbors {
-			binary.Write(wtr, binary.LittleEndian, uint32(n.Item))
+		if err := binary.Write(w, binary.LittleEndian, uint32(len(neighbors))); err != nil {
+			return err
 		}
-		wtr.Flush()
+		for _, n := range neighbors {
+			if err := binary.Write(w, binary.LittleEndian, uint32(n.Index)); err != nil {
+				return err
+			}
+		}
+		w.Flush()
 	}
 
+	if true {
+		log.Println("query ok")
+		return errors.New("query ok")
+	}
 	return nil
 }
 
@@ -346,6 +389,11 @@ func main() {
 						Name:  "profile-output",
 						Value: "cpu.pprof",
 						Usage: "profile output file",
+					},
+					&cli.StringFlag{
+						Name:  "sock",
+						Value: "",
+						Usage: "domain socket path",
 					},
 				},
 			},

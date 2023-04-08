@@ -1,21 +1,26 @@
 .ONESHELL:
 POETRY=poetry
 GO=go
+DOCKER=docker
 PARALLELISM=1
+pwd=$(pwd)
 
-.PHONY: setup benchmark flann annoy countrymaam-kd countrymaam-rp
+.PHONY: build setup benchmark flann annoy countrymaam-kd countrymaam-rp test
 
 build:
-	$(GO) build -o bin/countrymaam ../../cmd/countrymaam/main.go
-	docker build -t ann-benchmarks-countrymaam -f Dockerfile.countrymaam .
+	$(DOCKER) run --rm -v $(PWD)/../../:$(PWD)/../../ -w $(PWD) golang go  build -o lib/libcountrymaam_wrapper.so -buildmode=c-shared ../wrapper/countrymaam_wrapper.go
 
 setup: build
 	cd ann-benchmarks
 	cp ../countrymaam.py ./ann_benchmarks/algorithms
-	cp ../Dockerfile.countrymaam ./install
+	cp ../../wrapper/countrymaam_wrapper.py ./ann_benchmarks/algorithms
+	cp ../lib/libcountrymaam_wrapper.so ./ann_benchmarks/algorithms
+	cp ../Dockerfile.countrymaam ./install/Dockerfile.countrymaam-kd
 	patch -N < ../patch_algos.yaml
+	patch -p1 -N < ../patch_runner.py
 	$(POETRY) init --python '>= 3.8, < 3.11' -n
 	$(POETRY) add $$(cat requirements.txt | sed 's/=.*//g')
+	$(POETRY) add docker
 
 annoy: setup
 	cd ann-benchmarks

@@ -13,3 +13,8 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+# intermediate files for benchmarking
+benchmark/ann-benchmarks/lib/
+benchmark/annbench/lib/
+

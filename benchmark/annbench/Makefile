@@ -42,7 +42,7 @@ countrymaam-tree-siftsmall: setup annbench/dataset/siftsmall
 	cd annbench
 	$(POETRY) run python run.py dataset=siftsmall algo=countrymaam_tree
 
-countrymaam-tree-graph: setup annbench/dataset/siftsmall
+countrymaam-graph-siftsmall: setup annbench/dataset/siftsmall
 	cd annbench
 	$(POETRY) run python run.py dataset=siftsmall algo=countrymaam_graph
 

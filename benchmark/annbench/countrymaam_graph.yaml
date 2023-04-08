@@ -1,0 +1,15 @@
+# @package _group_
+
+name: countrymaam_graph
+
+param_index:
+  - index: aknn
+    neighbors: 30
+    rho: 1.0
+    use_profile: false
+  - index: rp_aknn
+    use_profile: false
+
+param_query:
+  search_k:
+    - 100

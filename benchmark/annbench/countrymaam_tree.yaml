@@ -1,13 +1,8 @@
 # @package _group_
 
-name: countrymaam
+name: countrymaam_tree
 
 param_index:
-  - index: aknn
-    neighbors: 30
-    rho: 1.0
-    use_profile: false
-
   - index: kd_tree
     trees: 8
     leafs: 16
@@ -20,8 +15,6 @@ param_index:
     sample_features: 100
     top_k_candidates: 5
     use_profile: false
-
-
   - index: rp_tree
     trees: 8
     leafs: 16
@@ -32,9 +25,6 @@ param_index:
     leafs: 8
     sample_features: 32
     use_profile: true
-
-  - index: rp_aknn
-    use_profile: false
 
 param_query:
   search_k:

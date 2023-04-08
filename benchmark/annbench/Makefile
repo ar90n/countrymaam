@@ -13,8 +13,9 @@ setup: build
 	cp ../countrymaam.py ./annbench/algo/countrymaam.py
 	cp ../../wrapper/countrymaam_wrapper.py ./annbench/algo/countrymaam_wrapper.py
 	cp ../lib/libcountrymaam_wrapper.so ./annbench/algo/libcountrymaam_wrapper.so
-	cp ../countrymaam.yaml ./conf/algo/countrymaam.yaml
-	patch -p 1 -forward < ../proxy.patch
+	cp ../countrymaam_tree.yaml ./conf/algo/countrymaam_tree.yaml
+	cp ../countrymaam_graph.yaml ./conf/algo/countrymaam_graph.yaml
+	patch -p1 -N < ../proxy.patch
 	$(POETRY) init --python '>= 3.8, < 3.11' -n
 	$(POETRY) add $$(cat requirements.txt | sed 's/=.*//g')
 	$(POETRY) add faiss-cpu
@@ -37,9 +38,13 @@ linear-siftsmall: setup annbench/dataset/siftsmall
 	cd annbench
 	$(POETRY) run python run.py dataset=siftsmall algo=linear
 
-countrymaam-siftsmall: setup annbench/dataset/siftsmall
+countrymaam-tree-siftsmall: setup annbench/dataset/siftsmall
 	cd annbench
-	$(POETRY) run python run.py dataset=siftsmall algo=countrymaam
+	$(POETRY) run python run.py dataset=siftsmall algo=countrymaam_tree
+
+countrymaam-tree-graph: setup annbench/dataset/siftsmall
+	cd annbench
+	$(POETRY) run python run.py dataset=siftsmall algo=countrymaam_graph
 
 annoy-sift1m: setup annbench/dataset/sift1m
 	cd annbench
@@ -49,9 +54,13 @@ linear-sift1m: setup annbench/dataset/sift1m
 	cd annbench
 	$(POETRY) run python run.py dataset=sift1m algo=linear
 
-countrymaam-sift1m: setup annbench/dataset/sift1m
+countrymaam-tree-sift1m: setup annbench/dataset/sift1m
 	cd annbench
-	$(POETRY) run python run.py dataset=sift1m algo=countrymaam
+	$(POETRY) run python run.py dataset=sift1m algo=countrymaam_tree
+
+countrymaam-graph-sift1m: setup annbench/dataset/sift1m
+	cd annbench
+	$(POETRY) run python run.py dataset=sift1m algo=countrymaam_graph
 
 benchmark-siftsmall: annoy-siftsmall linear-siftsmall countrymaam-siftsmall
 	cd annbench

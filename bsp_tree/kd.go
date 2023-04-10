@@ -89,6 +89,8 @@ type KdTreeBuilder[T linalg.Number] struct {
 func NewKdTreeBuilder[T linalg.Number]() *KdTreeBuilder[T] {
 	return &KdTreeBuilder[T]{
 		leafs: kdTreeDefaultLeafs,
+		sampleFeatures: 100,
+		topKCandidates: 5,
 	}
 }
 

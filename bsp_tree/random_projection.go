@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	rpTreeDefaultLeafs = 16
-	rpDefaultNSamples  = 32
+	rpDefaultLeafs          = 16
+	rpDefaultSampleFeatures = 32
 )
 
 var (
@@ -31,7 +31,7 @@ func (cp rpCutPlane[T]) Distance(feature []T, env linalg.Env[T]) float64 {
 	return cp.A + float64(env.DotWithF32(feature, cp.Normal))
 }
 
-func newRpCutPlane[T linalg.Number](features [][]T, indice []int, nFeatures uint, env linalg.Env[T]) (CutPlane[T], error) {
+func newRpCutPlane[T linalg.Number](features [][]T, indice []int, sampleFeatures uint, env linalg.Env[T]) (CutPlane[T], error) {
 	if len(indice) == 0 {
 		return nil, errors.New("elements is empty")
 	}
@@ -53,8 +53,8 @@ func newRpCutPlane[T linalg.Number](features [][]T, indice []int, nFeatures uint
 		rhsCenter[i] = float32(features[indice[rhsIndex]][i])
 	}
 	nSamples := uint(len(indice))
-	if 0 < nFeatures && nFeatures < nSamples {
-		nSamples = nFeatures
+	if 0 < sampleFeatures && sampleFeatures < nSamples {
+		nSamples = sampleFeatures
 	}
 
 	for i := 0; i < maxIter; i++ {
@@ -112,8 +112,8 @@ type RpTreeBuilder[T linalg.Number] struct {
 
 func NewRpTreeBuilder[T linalg.Number]() *RpTreeBuilder[T] {
 	return &RpTreeBuilder[T]{
-		leafs:          rpTreeDefaultLeafs,
-		sampleFeatures: rpDefaultNSamples,
+		leafs:          rpDefaultLeafs,
+		sampleFeatures: rpDefaultSampleFeatures,
 	}
 }
 
@@ -144,7 +144,7 @@ func (rtb *RpTreeBuilder[T]) Build(features [][]T, env linalg.Env[T]) (BspTree[T
 	}
 
 	cf := func(features [][]T, indice []int, env linalg.Env[T]) (CutPlane[T], error) {
-		return newRpCutPlane(features, indice, 0, env)
+		return newRpCutPlane(features, indice, rtb.sampleFeatures, env)
 	}
 	_, err := bsp_tree.buildSubTree(features, indice, rtb.leafs, 0, env, cf)
 	if err != nil {

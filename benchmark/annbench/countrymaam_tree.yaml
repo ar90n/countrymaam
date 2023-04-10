@@ -19,12 +19,12 @@ param_index:
     trees: 8
     leafs: 16
     sample_features: 32
-    use_profile: true
+    use_profile: false
   - index: rp_tree
     trees: 16 
     leafs: 8
     sample_features: 32
-    use_profile: true
+    use_profile: false
 
 param_query:
   search_k:

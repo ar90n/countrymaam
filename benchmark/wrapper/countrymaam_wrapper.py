@@ -52,21 +52,24 @@ def _get_profile_output_name_suffix(**kwargs: dict[str, Any]) -> str:
     return ret
 
 class IndexType(Enum):
-    FLAT = 0
-    KD_TREE = 1
-    RP_TREE = 2
-    AKNN = 3
-    RP_AKNN = 4
+    FLAT = "flat"
+    KD_TREE = "kd_tree"
+    RP_TREE = "rp_tree"
+    AKNN = "aknn"
+    RP_AKNN = "rp_aknn"
 
     @classmethod
     def from_str(cls, s):
         return {
-            "flat": cls.FLAT,
-            "kd_tree": cls.KD_TREE,
-            "rp_tree": cls.RP_TREE,
-            "aknn": cls.AKNN,
-            "rp_aknn": cls.RP_AKNN,
+            str(cls.FLAT): cls.FLAT,
+            str(cls.KD_TREE): cls.KD_TREE,
+            str(cls.RP_TREE): cls.RP_TREE,
+            str(cls.AKNN): cls.AKNN,
+            str(cls.RP_AKNN): cls.RP_AKNN,
         }[s]
+
+    def __str__(self):
+        return str(self.value)
 
 def get_index_class(index_type: IndexType) -> type:
     return {

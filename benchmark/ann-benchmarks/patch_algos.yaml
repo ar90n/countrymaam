@@ -15,8 +15,8 @@ index 7c1ebe6..f170633 100644
 +        kd:
 +          arg-groups:
 +            - {"index": ["kd_tree"], "trees": [8, 16, 32, 64],
-+               "leafs":[8, 16]}
-+          query-args: [[16, 32, 64, 128, 256, 512, 1024, 2048]]
++               "leafs":[8, 16, 32, 64]}
++          query-args: [[16, 32, 64, 128, 256, 512, 1024]]
 +    countrymaam-rp:
 +      docker-tag: ann-benchmarks-countrymaam
 +      module: ann_benchmarks.algorithms.countrymaam
@@ -26,8 +26,8 @@ index 7c1ebe6..f170633 100644
 +        rp:
 +          arg-groups:
 +            - {"index": ["rp_tree"], "trees": [8, 16, 32, 64],
-+               "leafs":[8, 16]}
-+          query-args: [[16, 32, 64, 128, 256, 512, 1024, 2048]]
++               "leafs":[8, 16, 32, 64]}
++          query-args: [[16, 32, 64, 128, 256, 512, 1024]]
      vamana(diskann):
        docker-tag: ann-benchmarks-diskann
        module: ann_benchmarks.algorithms.diskann

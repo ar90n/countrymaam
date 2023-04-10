@@ -36,9 +36,9 @@ class Countrymaam(BaseANN):
         clz = get_index_class(self._index_type)
         self._index = clz(X, **asdict(self._param))
 
-    def set_query_arguments(self, n):
+    def set_query_arguments(self, search_k):
         self._query_param = {
-            "n": n,
+            "search_k": search_k,
         } 
 
     def query(self, v, k):
@@ -58,5 +58,4 @@ class Countrymaam(BaseANN):
                 continue
             ret.append(f"{k}={v}")
         param_str = ", ".join(ret)
-        print(f"Countrymaam(index={self._index}, {param_str})")
-        return f"Countrymaam(index={self._index}, {param_str})"
+        return f"Countrymaam(index={self._index_type}, {param_str})"

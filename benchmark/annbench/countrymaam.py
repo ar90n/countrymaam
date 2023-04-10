@@ -62,4 +62,4 @@ class Countrymaam(BaseANN):
                 continue
             ret.append(f"{k}={v}")
         param_str = ", ".join(ret)
-        return f"Countrymaam(index={self._index}, {param_str})"
+        return f"Countrymaam(index={self._index_type}, {param_str})"

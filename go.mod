@@ -6,7 +6,7 @@ require (
 	github.com/sourcegraph/conc v0.3.0
 	github.com/stretchr/testify v1.8.4
 	github.com/urfave/cli/v2 v2.25.1
-	golang.org/x/sys v0.10.0
+	golang.org/x/sys v0.26.0
 )
 
 require (

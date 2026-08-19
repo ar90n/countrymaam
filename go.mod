@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/sourcegraph/conc v0.3.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.12.1
 	github.com/urfave/cli/v2 v2.25.1
 	golang.org/x/sys v0.10.0
 )
@@ -18,5 +18,6 @@ require (
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

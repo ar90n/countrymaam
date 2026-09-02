@@ -1,12 +1,12 @@
 module github.com/ar90n/countrymaam
 
-go 1.20
+go 1.25.0
 
 require (
 	github.com/sourcegraph/conc v0.3.0
 	github.com/stretchr/testify v1.8.4
 	github.com/urfave/cli/v2 v2.25.1
-	golang.org/x/sys v0.10.0
+	golang.org/x/sys v0.47.0
 )
 
 require (
